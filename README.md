@@ -9,33 +9,32 @@ Builds on-brand 9:16 Instagram Stories for Sawgrass: Tradeshow, PR Hit, Holiday 
 | `index.html` | Page layout and styles |
 | `app.js` | Builders, rendering and export |
 | `assets.js` | Brand assets (logos, VersiFlex gradient, ink splash, quote marks) embedded as data |
-| `sync.js` | Google sign-in and Firebase sync |
-| `firebase-config.js` | Your Firebase project keys and the allowed sign-in list |
-| `firestore.rules` | Security rules: each account can only read and write its own data |
+| `sync.js` | Cloud sync through Firebase Firestore (no sign-in) |
+| `firebase-config.js` | Your Firebase project keys and the shared workspace ID |
+| `firestore.rules` | Security rules: open read and save, no listing or deleting workspaces, size caps |
 
 Without Firebase set up, the builder still works and saves settings in that browser only.
 
-## 1. Set up Firebase (about 10 minutes)
+## 1. Set up Firebase (about 5 minutes)
 
 1. Go to console.firebase.google.com and create a project (Google Analytics can stay off).
-2. **Build → Authentication → Get started → Sign-in method → Google → Enable.**
-3. **Build → Firestore Database → Create database.** Pick a US location and start in production mode.
-4. In Firestore, open the **Rules** tab, replace everything with the contents of `firestore.rules` and click **Publish**.
-5. **Project settings (gear) → General → Your apps → Web (`</>`)**. Register an app (no Hosting needed) and copy the `firebaseConfig` values into `firebase-config.js`.
-6. Optional: add your Google email to `allowedEmails` in `firebase-config.js` so only you can sign in.
+2. **Build → Firestore Database → Create database.** Pick a US location and start in production mode.
+3. In Firestore, open the **Rules** tab, replace everything with the contents of `firestore.rules` and click **Publish**.
+4. **Project settings (gear) → General → Your apps → Web (`</>`)**. Register an app (no Hosting needed) and copy the `firebaseConfig` values into `firebase-config.js`. Leave `workspaceId` as it is.
 
 ## 2. Deploy to GitHub Pages
 
-1. Create a repository and upload these files to the root (keep `.nojekyll`).
+1. Upload `index.html`, `app.js`, `assets.js`, `sync.js` and `firebase-config.js` to the repository root.
 2. **Settings → Pages → Build and deployment → Deploy from a branch → `main` / root → Save.**
-3. The site goes live at `https://<your-username>.github.io/<repo-name>/` within a minute or two.
-4. Back in Firebase: **Authentication → Settings → Authorized domains → Add domain** and enter `<your-username>.github.io`. Sign-in will not work until this is added.
+3. The site goes live at `https://bbuhle.github.io/story_builder/` within a minute or two.
 
 ## How sync works
 
-- Sign in with Google from the home page. Settings, copy, slider positions and uploaded images (show logos, publication logos, splash, holiday photo) sync to Firestore.
+- There is no sign-in. Every device that opens the site reads and saves the same shared workspace.
+- Settings, copy, slider positions and uploaded images (show logos, publication logos, splash, holiday photo) save to Firestore about a second after you stop editing. The home page shows when the last save happened.
 - Images are stored as separate documents and compressed to stay under Firestore's 1 MB document limit.
-- When you open the site on another device and sign in, the newer settings win and the page reloads once with them.
+- When a device opens the site and the cloud has newer settings, the page loads them and reloads once.
+- Anyone who finds the site can change the shared settings. The rules stop them listing or deleting workspaces and cap the size of what they can save, and Firebase's free plan has hard limits, so there is no bill risk.
 - Benton Sans font files are not synced. Load them per session, since the license may not allow storing them in the cloud.
 
 ## Updating

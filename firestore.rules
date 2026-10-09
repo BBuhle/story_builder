@@ -1,11 +1,22 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Each signed-in person can read and write only their own settings and images.
-    match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+    // Open workspace: no sign-in. Anyone with the site can read and save settings,
+    // but nobody can list workspaces or delete one, and saved state is size-capped.
+    match /workspaces/{id} {
+      allow get: if true;
+      allow create, update: if request.resource.data.keys().hasOnly(['state', 'updatedAt'])
+                            && request.resource.data.state is string
+                            && request.resource.data.state.size() < 900000;
+      allow list, delete: if false;
+
       match /images/{key} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow get: if true;
+        allow create, update: if request.resource.data.keys().hasOnly(['data', 'updatedAt'])
+                              && request.resource.data.data is string
+                              && request.resource.data.data.size() < 1000000;
+        allow delete: if true;
+        allow list: if false;
       }
     }
   }

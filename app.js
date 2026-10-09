@@ -53,7 +53,7 @@ function load(){
   return structuredClone(DEFAULT);
 }
 let saveT;
-function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem('sg-updated',String(Date.now()))}catch(e){}window.dispatchEvent(new CustomEvent('sg:save',{detail:S}));try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){try{const t=Object.assign({},S,{splash:null,hol:Object.assign({},S.hol,{img:null})});localStorage.setItem(KEY,JSON.stringify(t))}catch(e2){}}},300)}
+function save(){clearTimeout(saveT);saveT=setTimeout(()=>{if(window.SG_BOOTED){try{localStorage.setItem('sg-updated',String(Date.now()))}catch(e){}window.dispatchEvent(new CustomEvent('sg:save',{detail:S}))}try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){try{const t=Object.assign({},S,{splash:null,hol:Object.assign({},S.hol,{img:null})});localStorage.setItem(KEY,JSON.stringify(t))}catch(e2){}}},300)}
 
 function loadImg(src){return new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.onerror=()=>r(null);i.src=src})}
 
@@ -707,6 +707,8 @@ $('iywExport').addEventListener('click',async()=>{
   imgs.sawgrass=await loadImg(ASSETS.sawgrass);prSync();
   if(Hh.img)imgs.holImg=await loadImg(Hh.img);holSync();iywSync();
   show(['#tradeshow','#pr','#holiday','#words'].includes(location.hash)?location.hash.slice(1):'home');
+  // Only edits made after the page has loaded count as changes worth syncing.
+  setTimeout(()=>{window.SG_BOOTED=true},1200);
   // Standalone: save files with a normal browser download.
   downloads={save:async({filename,data})=>{const blob=data instanceof Blob?data:new Blob([data]);const url=URL.createObjectURL(blob);
     const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);return{status:'saved'}}};
