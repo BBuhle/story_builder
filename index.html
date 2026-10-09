@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sawgrass Story Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: controls rail on the left, live three-ratio preview on the right; stacks on phones. */
+:root{
+  --bg:#F3F3F5; --panel:#FFFFFF; --fg:#101921; --muted:#5E626E; --faint:#888B95;
+  --line:#DAD8D9; --field:#FAFAFB; --accent:#E04584; --accent-2:#FF7F39; --warn:#B4570F; --warn-bg:#FFF3E8;
+  --ui:"Libre Franklin","Helvetica Neue",Helvetica,Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0B1117; --panel:#131B23; --fg:#EEF0F3; --muted:#A3A7B1; --faint:#7E838F;
+  --line:#26313C; --field:#0F161D; --accent:#EE6A9F; --accent-2:#FF9459; --warn:#FFB27A; --warn-bg:#2A1A0E; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0B1117; --panel:#131B23; --fg:#EEF0F3; --muted:#A3A7B1; --faint:#7E838F;
+  --line:#26313C; --field:#0F161D; --accent:#EE6A9F; --accent-2:#FF9459; --warn:#FFB27A; --warn-bg:#2A1A0E; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font-family:var(--ui);font-size:14px;line-height:1.45;padding:0 16px;margin:0}
+.wrap{max-width:1500px;margin:0 auto;padding-block:20px 48px;display:grid;grid-template-columns:380px minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:980px){.wrap{grid-template-columns:1fr}}
+header.top{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:14px}
+header.top h1{font-size:22px;font-weight:700;margin:0;text-wrap:balance}
+header.top p{margin:2px 0 0;color:var(--muted);max-width:62ch}
+.stripe{height:4px;width:64px;background:linear-gradient(180deg,#E04584,#FF7F39);border-radius:2px;margin-bottom:10px}
+.rail{display:flex;flex-direction:column;gap:14px;min-width:0}
+.sec{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.sec h2{font-size:11px;font-family:var(--mono);font-weight:500;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:0;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.chip{font-family:var(--ui);letter-spacing:0;text-transform:none;font-size:11px;font-weight:600;color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);padding:2px 8px;border-radius:99px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--muted);min-width:0}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 80px;gap:10px}
+input[type=text],input[type=date],input[type=number],select{width:100%;font:inherit;font-size:14px;font-weight:500;color:var(--fg);background:var(--field);border:1px solid var(--line);border-radius:7px;padding:8px 10px;min-width:0}
+input:focus-visible,select:focus-visible,button:focus-visible,.sw:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.hint{font-size:12px;color:var(--faint);margin:0}
+.warn{font-size:12px;color:var(--warn);background:var(--warn-bg);border-radius:6px;padding:6px 9px;margin:0}
+.swatches{display:grid;grid-template-columns:repeat(9,1fr);gap:5px}
+.sw{aspect-ratio:3/4;border-radius:6px;border:2px solid transparent;cursor:pointer;padding:0;max-width:100%}
+.sw[aria-pressed=true]{border-color:var(--fg);box-shadow:0 0 0 2px var(--panel) inset}
+.swname{font-size:12px;font-weight:600;margin:0}
+.checks{display:flex;flex-wrap:wrap;gap:8px}
+.ck{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:7px;padding:6px 10px;font-weight:600;cursor:pointer;background:var(--field)}
+.ck input{accent-color:var(--accent);margin:0}
+.ck small{font-family:var(--mono);font-weight:500;color:var(--faint);font-size:11px}
+.upl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{font:inherit;font-weight:600;font-size:13px;border-radius:7px;border:1px solid var(--line);background:var(--field);color:var(--fg);padding:7px 12px;cursor:pointer}
+.btn:hover{border-color:var(--faint)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.stage{border:1px solid var(--line);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--field)}
+.stage.off{opacity:.55}
+.stage .hd{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.stage .hd label{display:flex;align-items:center;gap:8px;font-weight:700;cursor:pointer}
+.stage .hd input{accent-color:var(--accent)}
+.stage .when{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.stage input[type=text]{background:var(--panel);font-size:13px;padding:6px 9px}
+.mini{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);font-weight:600}
+.mini input{accent-color:var(--accent)}
+.tok{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.sliders{display:flex;flex-direction:column;gap:8px}
+.sl{display:grid;grid-template-columns:110px minmax(0,1fr) 44px;align-items:center;gap:10px;font-size:13px;font-weight:600;color:var(--muted)}
+.sl input{width:100%;accent-color:var(--accent);margin:0}
+.sl output{font-family:var(--mono);font-size:11px;color:var(--faint);text-align:right;font-variant-numeric:tabular-nums}
+.main{display:flex;flex-direction:column;gap:14px;min-width:0;position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px)}
+@media (max-width:980px){.main{position:static}}
+.bar{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tab{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--line);background:var(--field);color:var(--muted);border-radius:99px;padding:5px 12px;cursor:pointer}
+.tab[aria-selected=true]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.status{font-size:12px;color:var(--muted)}
+.stagewrap{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;overflow-x:auto}
+.previews{display:flex;gap:16px;align-items:flex-end;justify-content:center;min-width:0}
+@media (max-width:640px){.previews{flex-direction:column;align-items:center}}
+figure{margin:0;display:flex;flex-direction:column;gap:6px;align-items:center;min-width:0}
+figure canvas{display:block;height:min(74vh,760px);width:auto;max-width:100%;border-radius:4px;box-shadow:0 1px 2px rgb(0 0 0 / .12),0 6px 20px rgb(0 0 0 / .10)}
+@media (max-width:640px){figure canvas{height:auto;width:min(320px,100%)}}
+.home{max-width:1100px;margin:0 auto;padding-block:20px 48px;display:flex;flex-direction:column;gap:22px}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+@media (max-width:900px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{font:inherit;color:var(--fg);text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:10px;cursor:pointer;position:relative;min-width:0}
+.tile:not(:disabled):hover{border-color:var(--accent)}
+.tile:disabled{cursor:default}
+.tile:disabled .thumb{filter:saturate(.35);opacity:.7}
+.thumb{aspect-ratio:9/16;max-width:100%;border-radius:8px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:18%;background-size:cover;background-position:center}
+.thumb .tt{color:#fff;font-weight:600;font-size:15px}
+.t-pr{background-image:linear-gradient(180deg,#57CCF6,#8C84E3)}
+.t-hol{background-image:linear-gradient(180deg,#E04584,#FF7F39)}
+.t-words{background-image:linear-gradient(180deg,#FFCF00,#FF7F39)}
+.t-words .tt{font-size:40px;line-height:1}
+.tmeta{display:flex;flex-direction:column;gap:2px;min-width:0}
+.tmeta b{font-size:15px}
+.tmeta span{font-size:12px;color:var(--muted)}
+.state{position:absolute;top:18px;left:18px;font-size:11px;font-weight:600;background:rgb(16 25 33 / .72);color:#fff;border-radius:99px;padding:2px 9px}
+.state.ready{background:#fff;color:#101921}
+.back{margin-bottom:10px;font-size:12px;padding:4px 10px}
+figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.empty{color:var(--muted);text-align:center;padding:40px 10px}
+.legend{font-size:12px;color:var(--faint);margin:0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.sync{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.sync span{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<section id="home" class="home">
+  <header class="top">
+    <div>
+      <div class="stripe" aria-hidden="true"></div>
+      <h1>Sawgrass Story Builder</h1>
+      <p>Pick a story type, fill in the details and export a set of 9:16 Instagram Stories on brand.</p>
+    </div>
+    <div class="sync"><span id="syncLabel">Loading sync…</span><button class="btn" type="button" id="syncBtn">Sign in to sync</button></div>
+  </header>
+  <div class="tiles">
+    <button type="button" class="tile" data-go="tradeshow">
+      <span class="thumb t-trade"><span class="tt">Booth C2591</span></span>
+      <span class="tmeta"><b>Tradeshow Stories</b><span>Announcement through thank you, one story per stage.</span></span>
+      <span class="state ready">Ready</span>
+    </button>
+    <button type="button" class="tile" data-go="pr">
+      <span class="thumb t-pr"><span class="tt">Featured In</span></span>
+      <span class="tmeta"><b>PR Hit Stories</b><span>A feature story and a quote story for each press hit.</span></span>
+      <span class="state ready">Ready</span>
+    </button>
+    <button type="button" class="tile" data-go="holiday">
+      <span class="thumb t-hol"><span class="tt">Holiday Hours</span></span>
+      <span class="tmeta"><b>Holiday Closure Stories</b><span>Office and support closure notices from a set of dates.</span></span>
+      <span class="state ready">Ready</span>
+    </button>
+    <button type="button" class="tile" data-go="words">
+      <span class="thumb t-words"><span class="tt">“ ”</span></span>
+      <span class="tmeta"><b>In Your Words</b><span>Customer quotes and reviews, one story each.</span></span>
+      <span class="state ready">Ready</span>
+    </button>
+  </div>
+</section>
+
+<div class="wrap" id="tradeshow" hidden>
+  <header class="top">
+    <div>
+      <button type="button" class="btn back" id="backHome">← All story types</button>
+      <h1>Tradeshow Stories</h1>
+      <p>Fill in the show once. Every stage from announcement to thank you renders as a 9:16 story, ready to export as one package.</p>
+    </div>
+    <p class="legend">1080 × 1920 PNG · Brand Guide 2026</p>
+  </header>
+
+  <aside class="rail">
+    <section class="sec">
+      <h2>Show details <span class="chip" id="exampleChip">Example details</span></h2>
+      <label class="f">Show name<input id="show" type="text" autocomplete="off"></label>
+      <div class="row">
+        <label class="f">Location<input id="city" type="text" autocomplete="off"></label>
+        <label class="f">Booth<input id="booth" type="text" autocomplete="off"></label>
+      </div>
+      <div class="row">
+        <label class="f">First day<input id="start" type="date"></label>
+        <label class="f">Last day<input id="end" type="date"></label>
+      </div>
+      <p class="hint" id="datePreview"></p>
+      <div class="upl">
+        <input id="logoFile" type="file" accept="image/*" hidden>
+        <button class="btn" type="button" id="logoBtn">Upload show logo</button>
+        <button class="btn" type="button" id="logoClear" hidden>Remove</button>
+        <span class="hint" id="logoName">No logo yet. The show name stands in for it.</span>
+      </div>
+      <label class="mini"><input type="checkbox" id="panelOn"> Put the show logo on a white panel</label>
+      <p class="hint">Turn the panel off for a white or reverse show logo that reads on the gradient by itself.</p>
+    </section>
+
+    <section class="sec">
+      <h2>Product focus</h2>
+      <select id="product" aria-label="Product focus"></select>
+      <label class="f">Lead-in<input id="lead" type="text" autocomplete="off"></label>
+      <label class="f">Pitch line <span class="tok">used as {pitch}</span><input id="pitch" type="text" autocomplete="off"></label>
+      <p class="warn" id="productWarn" hidden></p>
+    </section>
+
+    <section class="sec">
+      <h2>Background</h2>
+      <div class="swatches" id="swatches" role="group" aria-label="Background gradient"></div>
+      <p class="swname" id="swName"></p>
+      <label class="mini"><input type="checkbox" id="archOn"> Arch the headline</label>
+      <p class="warn" id="contrastWarn" hidden>White type gets thin on yellow. Check the 9:16 before posting, or pick another gradient.</p>
+      <label class="mini"><input type="checkbox" id="splashOn"> Ink splash behind the show logo</label>
+      <div class="upl">
+        <input id="splashFile" type="file" accept="image/png,image/webp" hidden>
+        <button class="btn" type="button" id="splashBtn">Replace splash</button>
+        <button class="btn" type="button" id="splashReset" hidden>Use default</button>
+      </div>
+      <p class="hint">The default splash comes from the brand guide at low resolution. Upload the full-size transparent PNG once and the builder keeps it.</p>
+    </section>
+
+
+    <section class="sec">
+      <h2>Element sizes <button class="btn" type="button" id="resetSizes" style="font-size:12px;padding:3px 9px;text-transform:none;letter-spacing:0;font-family:var(--ui)">Reset</button></h2>
+      <div id="sliders" class="sliders"></div>
+      <p class="hint">Sizes apply to every stage and format. If the stack gets too tall for a format, that format scales down as a whole to fit.</p>
+    </section>
+
+    <section class="sec">
+      <h2>Cadence <span class="tok">{show} {city} {booth} {days} {n} {pitch}</span></h2>
+      <div class="row3">
+        <label class="f">Days out<input id="daysOut" type="number" min="1" max="60"></label>
+        <span></span><span></span>
+      </div>
+      <div id="stages" style="display:flex;flex-direction:column;gap:8px"></div>
+      <button class="btn" type="button" id="resetCopy">Reset all copy to defaults</button>
+    </section>
+
+    <section class="sec">
+      <h2>Type</h2>
+      <p class="hint" id="fontStatus">Rendering in Helvetica, the approved fallback. Load Benton Sans files to match Canva exactly.</p>
+      <div class="upl">
+        <input id="fontFile" type="file" accept=".otf,.ttf,.woff,.woff2" multiple hidden>
+        <button class="btn" type="button" id="fontBtn">Load Benton Sans</button>
+      </div>
+      <p class="hint">Pick the Book, Medium and Bold files together. Names containing Book, Medium or Bold are matched to their weight.</p>
+    </section>
+  </aside>
+
+  <main class="main">
+    <div class="bar">
+      <div class="tabs" id="tabs" role="tablist" aria-label="Preview stage"></div>
+      <div class="actions">
+        <span class="status" id="status" role="status"></span>
+        <button class="btn" type="button" id="exportOne">Download this stage</button>
+        <button class="btn primary" type="button" id="exportAll">Download package</button>
+      </div>
+    </div>
+    <div class="stagewrap"><div class="previews" id="previews"></div></div>
+    <p class="legend" id="pkgCount"></p>
+  </main>
+</div>
+
+<div class="wrap" id="pr" hidden>
+  <header class="top">
+    <div>
+      <button type="button" class="btn back" data-home>← All story types</button>
+      <h1>PR Hit Stories</h1>
+      <p>A feature story and a quote story for each press hit. Add the Read More link sticker on Instagram after export.</p>
+    </div>
+    <p class="legend">1080 × 1920 PNG · Brand Guide 2026</p>
+  </header>
+
+  <aside class="rail">
+    <section class="sec">
+      <h2>Publication <span class="chip" id="prExample">Example details</span></h2>
+      <label class="f">Publication name<input id="prPub" type="text" autocomplete="off"></label>
+      <div class="upl">
+        <input id="prLogoFile" type="file" accept="image/*" hidden>
+        <button class="btn" type="button" id="prLogoBtn">Upload publication logo</button>
+        <button class="btn" type="button" id="prLogoClear" hidden>Remove</button>
+        <span class="hint" id="prLogoName">No logo yet. The publication name stands in for it.</span>
+      </div>
+      <label class="mini"><input type="checkbox" id="prPanel"> Put the logo on a white panel</label>
+      <p class="hint">Use the panel for dark or full-color logos so white type can stay on the gradient.</p>
+    </section>
+
+    <section class="sec">
+      <h2>Feature story</h2>
+      <label class="mini"><input type="checkbox" id="prFeatOn"> Include</label>
+      <label class="f">Label<input id="prLabel" type="text" autocomplete="off"></label>
+      <label class="f">Article headline<input id="prHead" type="text" autocomplete="off"></label>
+      <label class="f">Byline<input id="prByline" type="text" autocomplete="off"></label>
+    </section>
+
+    <section class="sec">
+      <h2>Quote story</h2>
+      <label class="mini"><input type="checkbox" id="prQuoteOn"> Include</label>
+      <label class="f">Pull quote<textarea id="prQuote" rows="5" style="font:inherit;font-size:14px;color:var(--fg);background:var(--field);border:1px solid var(--line);border-radius:7px;padding:8px 10px;resize:vertical;min-width:0"></textarea></label>
+      <p class="hint" id="prQuoteCount"></p>
+    </section>
+
+    <section class="sec">
+      <h2>Style</h2>
+      <div class="swatches" id="prSwatches" role="group" aria-label="Background gradient"></div>
+      <p class="swname" id="prSwName"></p>
+      <label class="f">Text color
+        <select id="prInk"><option value="white">White (brand default on color)</option><option value="black">Black</option></select>
+      </label>
+      <p class="warn" id="prInkWarn" hidden>The brand guide calls for white type on colored backgrounds. Black works on the lighter gradients but is off-guide.</p>
+      <label class="mini"><input type="checkbox" id="prGlow"> Soft white glow at the top</label>
+      <label class="mini"><input type="checkbox" id="prMark"> Sawgrass logo and divider</label>
+      <label class="mini"><input type="checkbox" id="prGuide"> Show Read More sticker zone in preview</label>
+    </section>
+
+    <section class="sec">
+      <h2>Element sizes <button class="btn" type="button" id="prResetSizes" style="font-size:12px;padding:3px 9px;text-transform:none;letter-spacing:0;font-family:var(--ui)">Reset</button></h2>
+      <div id="prSliders" class="sliders"></div>
+      <p class="hint">Long headlines and quotes shrink on their own to stay clear of the divider.</p>
+    </section>
+  </aside>
+
+  <main class="main">
+    <div class="bar">
+      <span class="status" id="prStatus" role="status"></span>
+      <div class="actions">
+        <button class="btn primary" type="button" id="prExport">Download stories</button>
+      </div>
+    </div>
+    <div class="stagewrap"><div class="previews" id="prPreviews"></div></div>
+    <p class="legend">The sticker zone is a preview guide only. It never appears in exports.</p>
+  </main>
+</div>
+
+<div class="wrap" id="holiday" hidden>
+  <header class="top">
+    <div>
+      <button type="button" class="btn back" data-home>← All story types</button>
+      <h1>Holiday Closure Stories</h1>
+      <p>Pick a layout, set the dates and the closure copy writes itself. Every line stays editable.</p>
+    </div>
+    <p class="legend">1080 × 1920 PNG · Brand Guide 2026</p>
+  </header>
+
+  <aside class="rail">
+    <section class="sec">
+      <h2>Layout</h2>
+      <div class="checks" id="holLayouts" role="radiogroup" aria-label="Layout">
+        <label class="ck"><input type="radio" name="holLayout" value="hours"> Holiday Hours <small>text</small></label>
+        <label class="ck"><input type="radio" name="holLayout" value="closure"> Holiday Closure <small>with photo</small></label>
+      </div>
+      <label class="f">Headline<input id="holHead" type="text" autocomplete="off"></label>
+    </section>
+
+    <section class="sec">
+      <h2>Closure <span class="tok">{team} {closed} {return}</span></h2>
+      <label class="f">Who is out
+        <select id="holTeamPick">
+          <option>Our Global Care Teams</option><option>Our US Support Team</option><option>Our US Offices</option><option>Our EU Support Team</option><option value="custom">Custom…</option>
+        </select>
+      </label>
+      <input id="holTeam" type="text" autocomplete="off" aria-label="Custom team name" hidden>
+      <div class="row">
+        <label class="f">Closed from<input id="holStart" type="date"></label>
+        <label class="f">Closed through<input id="holEnd" type="date"></label>
+      </div>
+      <label class="f">Back on<input id="holBack" type="date"></label>
+      <p class="hint" id="holDates"></p>
+    </section>
+
+    <section class="sec">
+      <h2>Copy</h2>
+      <label class="f">Closed line<input id="holP1" type="text" autocomplete="off"></label>
+      <label class="f">Return line<input id="holP2" type="text" autocomplete="off"></label>
+      <label class="f" id="holP3Wrap">Resources line<input id="holP3" type="text" autocomplete="off"></label>
+      <label class="f" id="holSignWrap">Sign-off<input id="holSign" type="text" autocomplete="off"></label>
+      <button class="btn" type="button" id="holResetCopy">Reset copy to defaults</button>
+    </section>
+
+    <section class="sec" id="holPhotoSec">
+      <h2>Photo</h2>
+      <div class="upl">
+        <input id="holImgFile" type="file" accept="image/png,image/webp,image/jpeg" hidden>
+        <button class="btn" type="button" id="holImgBtn">Upload photo</button>
+        <button class="btn" type="button" id="holImgClear" hidden>Remove</button>
+      </div>
+      <p class="hint">A cut-out product shot (transparent PNG) works best. It sits at the bottom and can bleed off the edges.</p>
+    </section>
+
+    <section class="sec">
+      <h2>Style</h2>
+      <div class="swatches" id="holSwatches" role="group" aria-label="Background gradient"></div>
+      <p class="swname" id="holSwName"></p>
+      <label class="mini" id="holWordWrap"><input type="checkbox" id="holWord"> Sawgrass logo at the top</label>
+      <label class="mini" id="holMarkWrap"><input type="checkbox" id="holMark"> Logomark at the bottom</label>
+    </section>
+
+    <section class="sec">
+      <h2>Element sizes <button class="btn" type="button" id="holResetSizes" style="font-size:12px;padding:3px 9px;text-transform:none;letter-spacing:0;font-family:var(--ui)">Reset</button></h2>
+      <div id="holSliders" class="sliders"></div>
+    </section>
+  </aside>
+
+  <main class="main">
+    <div class="bar">
+      <span class="status" id="holStatus" role="status"></span>
+      <div class="actions"><button class="btn primary" type="button" id="holExport">Download story</button></div>
+    </div>
+    <div class="stagewrap"><div class="previews" id="holPreviews"></div></div>
+  </main>
+</div>
+
+<div class="wrap" id="words" hidden>
+  <header class="top">
+    <div>
+      <button type="button" class="btn back" data-home>← All story types</button>
+      <h1>In Your Words</h1>
+      <p>Customer quotes as stories. Add as many as you like and export them together.</p>
+    </div>
+    <p class="legend">1080 × 1920 PNG · Brand Guide 2026</p>
+  </header>
+
+  <aside class="rail">
+    <section class="sec">
+      <h2>Quotes <span class="chip" id="iywExample">Example quote</span></h2>
+      <div id="iywList" style="display:flex;flex-direction:column;gap:8px"></div>
+      <button class="btn" type="button" id="iywAdd">Add another quote</button>
+    </section>
+
+    <section class="sec">
+      <h2>Style</h2>
+      <div class="swatches" id="iywSwatches" role="group" aria-label="Background gradient"></div>
+      <p class="swname" id="iywSwName"></p>
+      <p class="warn" id="iywWarn" hidden>White type gets thin on yellow. The Bold quote holds up, but check the attribution line.</p>
+      <label class="mini"><input type="checkbox" id="iywMarks"> Large quote marks</label>
+      <label class="mini"><input type="checkbox" id="iywWord"> Sawgrass logo at the bottom</label>
+    </section>
+
+    <section class="sec">
+      <h2>Element sizes <button class="btn" type="button" id="iywResetSizes" style="font-size:12px;padding:3px 9px;text-transform:none;letter-spacing:0;font-family:var(--ui)">Reset</button></h2>
+      <div id="iywSliders" class="sliders"></div>
+      <p class="hint">Long quotes shrink on their own to stay clear of the logo.</p>
+    </section>
+  </aside>
+
+  <main class="main">
+    <div class="bar">
+      <div class="tabs" id="iywTabs" role="tablist" aria-label="Preview quote"></div>
+      <div class="actions">
+        <span class="status" id="iywStatus" role="status"></span>
+        <button class="btn primary" type="button" id="iywExport">Download stories</button>
+      </div>
+    </div>
+    <div class="stagewrap"><div class="previews" id="iywPreviews"></div></div>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="assets.js"></script>
+<script src="app.js"></script>
+<script type="module" src="sync.js"></script>
+</body>
+</html>
