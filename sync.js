@@ -10,16 +10,23 @@ if (!configured) {
   setLabel('Cloud sync is off: add your Firebase config');
 } else {
   const V = '10.12.2';
-  const [{ initializeApp }, fs] = await Promise.all([
-    import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`),
-    import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`),
-  ]);
+  let initializeApp, fs;
+  try {
+    [{ initializeApp }, fs] = await Promise.all([
+      import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`),
+      import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`),
+    ]);
+  } catch (err) {
+    console.error(err);
+    setLabel('Could not reach Firebase. Changes are kept on this device.');
+    throw err;
+  }
   const db = fs.getFirestore(initializeApp(firebaseConfig));
   const wsRef = fs.doc(db, 'workspaces', workspaceId);
   const imgRef = (key) => fs.doc(db, 'workspaces', workspaceId, 'images', key);
 
   // Images are stored as their own documents (Firestore caps a document near 1 MB).
-  const IMAGE_PATHS = { tsLogo: ['logo'], splash: ['splash'], prLogo: ['pr', 'logo'], holImg: ['hol', 'img'] };
+  const IMAGE_PATHS = { tsLogo: ['logo'], dealerLogo: ['dealerLogo'], splash: ['splash'], prLogo: ['pr', 'logo'], holImg: ['hol', 'img'] };
   const getPath = (o, p) => p.reduce((x, k) => (x == null ? x : x[k]), o);
   const setPath = (o, p, v) => { let x = o; for (const k of p.slice(0, -1)) { x[k] = x[k] || {}; x = x[k]; } x[p[p.length - 1]] = v; };
   const sig = (s) => (s ? `${s.length}:${s.slice(64, 128)}:${s.slice(-64)}` : '');

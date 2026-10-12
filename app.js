@@ -24,7 +24,7 @@ const PRODUCTS=[
 ];
 /* Sizes are the target at 1080 px wide. Each ratio has its own hierarchy; the renderer scales a ratio down only if its content would not fit. */
 const RATIOS=[
-  {id:'9x16',label:'9:16',H:1920,pad:150,side:110,mark:90,eye:48,logo:220,meta:76,learn:76,word:113,body:45,bl:3,bt:61,splash:872},
+  {id:'9x16',label:'9:16',H:1920,pad:150,side:110,mark:90,eye:48,logo:220,meta:76,learn:76,word:113,body:45,bl:3,bt:61,splash:872,dealer:150},
 ];
 const STAGE_DEFS=[
   {id:'announce',name:'Announcement',when:'Pre-show',head:"We'll See You Soon!",body:'{pitch}',product:true},
@@ -38,9 +38,10 @@ const STAGE_DEFS=[
 const DEFAULT={
   show:'Printing United Expo',city:'Las Vegas, NV',booth:'C2591',start:'2026-11-04',end:'2026-11-06',
   product:'versiflex',lead:'Learn About',pitch:PRODUCTS[0].pitch,pitchEdited:false,
-  grad:'vf',arch:true,scale:{eye:100,mark:100,logo:100,meta:100,learn:100,word:100,body:100,booth:100},splashOn:true,splashSize:100,panel:true,ratios:{'1x1':true,'4x5':true,'9x16':true},daysOut:7,
+  grad:'vf',arch:true,scale:{eye:100,mark:100,logo:100,meta:100,dealer:100,learn:100,word:100,body:100,booth:100},splashOn:true,splashSize:100,panel:true,ratios:{'1x1':true,'4x5':true,'9x16':true},daysOut:7,
   stages:Object.fromEntries(STAGE_DEFS.map(s=>[s.id,{on:true,head:s.head,body:s.body,product:s.product}])),
-  logo:null,logoName:'',splash:null,example:true
+  logo:null,logoName:'',splash:null,example:true,
+  dealerOn:false,dealer:'',dealerLead:'Find Us With',dealerLogo:null,dealerLogoName:'',dealerPanel:false
 };
 let S=load();
 window.SG_KEY=KEY;window.SG_STATE=()=>S;
@@ -132,7 +133,7 @@ function productBlock(ctx,R,maxW){
   }};
 }
 
-const SCALE_KEYS={eye:'eye',mark:'mark',logo:'logo',meta:'meta',learn:'learn',word:'word',body:'body',booth:'bt'};
+const SCALE_KEYS={eye:'eye',mark:'mark',logo:'logo',meta:'meta',dealer:'dealer',learn:'learn',word:'word',body:'body',booth:'bt'};
 function layout(ctx,R0,stage,W,H){
   R0=Object.assign({},R0);const sc=S.scale||{};
   for(const k in SCALE_KEYS)R0[SCALE_KEYS[k]]*=((sc[k]??100)/100);
@@ -153,10 +154,29 @@ function measure(ctx,R,stage,W,H){
   ctx.font=F(500,L.eyeSize);L.headW=ctx.measureText(L.head).width;
   L.arcR=W*0.62;L.sag=S.arch?L.arcR*(1-Math.cos(Math.min(1.2,L.headW/2/L.arcR))):0;
   L.g1=L.eyeSize*1.05+L.sag+R.eye*0.55+L.markH;
-  L.metaTxt=[S.city.trim(),dateLine()].filter(Boolean).join('  |  ');
-  L.metaSize=L.metaTxt?fitFont(ctx,L.metaTxt,700,R.meta,maxW,R.meta*0.55):0;
+  // Location and date: one line when it fits, otherwise location wraps and the date drops to its own line
+  const city=S.city.trim(),dl=dateLine();L.metaLines=[];L.metaSize=0;
+  if(city||dl){
+    const one=[city,dl].filter(Boolean).join('  |  ');let sz=R.meta;ctx.font=F(700,sz);
+    while(ctx.measureText(one).width>maxW&&sz>R.meta*0.8){sz-=1;ctx.font=F(700,sz)}
+    if(ctx.measureText(one).width<=maxW){L.metaLines=[one]}
+    else{
+      sz=R.meta*0.82;const build=()=>{ctx.font=F(700,sz);return [...(city?wrap(ctx,city,maxW):[]),...(dl?[dl]:[])]};
+      let ls=build();while((ls.length>(dl?3:2)||ls.some(l=>ctx.measureText(l).width>maxW))&&sz>R.meta*0.45){sz-=1;ls=build()}
+      L.metaLines=ls;
+    }
+    L.metaSize=sz;
+  }
   L.logoH=R.logo;
-  L.g2=L.logoH+(L.metaTxt?R.meta*0.75+L.metaSize*1.15:0);
+  L.metaH=L.metaLines.length?R.meta*0.75+L.metaLines.length*L.metaSize*1.22:0;
+  // Dealer lockup: "Find Us With" + dealer logo (or name)
+  L.dealer=null;
+  if(S.dealerOn&&(imgs.dealerLogo||S.dealer.trim())){
+    const lead=S.dealerLead.trim(),ls=R.meta*0.72,dh=R.dealer;
+    L.dealer={lead,ls,dh,top:R.meta*1.1};
+    L.dealer.h=L.dealer.top+(lead?ls*1.45:0)+dh;
+  }
+  L.g2=L.logoH+L.metaH+(L.dealer?L.dealer.h:0);
   const showProduct=stage.st.product&&S.product!=='none';
   L.pb=showProduct?productBlock(ctx,R,maxW):null;
   L.lead=S.lead.trim();
@@ -179,7 +199,8 @@ function render(canvas,R0,stage){
   ctx.textAlign='center';ctx.textBaseline='top';
   const L=layout(ctx,R0,stage,W,H);const R=L.R;
   const n=L.groups.length;
-  const units=Math.max(1,(n-1)+2);              // gaps before and after the logo group count double
+  const tight=L.pb&&L.lines.length?0.55:0;       // product logo sits closer to the body line
+  const units=Math.max(1,(n-1)+2-tight);         // gaps before and after the logo group count double
   const free=H-R.pad*2-L.used;
   const g=Math.min(Math.max(H*0.022,free/units),H*0.07);
   let y=(H-(L.used+g*units))/2;
@@ -215,17 +236,31 @@ function render(canvas,R0,stage){
   }else{
     const name=S.show.trim()||'Show Name';ctx.fillStyle=panel?INK:'#fff';
     const box=cardW-ip*2;let fs=zoneH*(panel?0.42:0.7);ctx.font=F(700,fs);let ls=wrap(ctx,name,box);
-    while((ls.length>2||ls.some(l=>ctx.measureText(l).width>box))&&fs>14){fs-=2;ctx.font=F(700,fs);ls=wrap(ctx,name,box)}
+    while((ls.length>2||ls.length*fs*1.08>zoneH*(panel?0.74:0.8)||ls.some(l=>ctx.measureText(l).width>box))&&fs>14){fs-=2;ctx.font=F(700,fs);ls=wrap(ctx,name,box)}
     const th=ls.length*fs*1.08;let ty=zoneY+zoneH/2-th/2;
     for(const l of ls){ctx.fillText(l,W/2,ty+fs*0.04);ty+=fs*1.08}
   }
-  if(L.metaTxt){ctx.fillStyle='#fff';ctx.font=F(700,L.metaSize);ctx.fillText(L.metaTxt,W/2,zoneY+zoneH+R.meta*0.75)}
+  let my=zoneY+zoneH+R.meta*0.75;
+  if(L.metaLines.length){ctx.fillStyle='#fff';ctx.font=F(700,L.metaSize);for(const l of L.metaLines){ctx.fillText(l,W/2,my);my+=L.metaSize*1.22}}
+  if(L.dealer){
+    const D=L.dealer;let dy=zoneY+zoneH+L.metaH+D.top;
+    if(D.lead){ctx.fillStyle='#fff';ctx.font=F(500,D.ls);ctx.fillText(D.lead,W/2,dy);dy+=D.ls*1.45}
+    const dp=!!S.dealerPanel,pad=dp?D.dh*0.16:0,maxLW=L.maxW*0.62;
+    if(imgs.dealerLogo){
+      const lg=imgs.dealerLogo,sc=Math.min((maxLW-pad*2)/lg.width,(D.dh-pad*2)/lg.height),w=lg.width*sc,h=lg.height*sc;
+      if(dp){rr(ctx,W/2-w/2-pad,dy+(D.dh-h)/2-pad,w+pad*2,h+pad*2,Math.min(24,(h+pad*2)*0.12));ctx.fillStyle='#fff';ctx.fill()}
+      ctx.drawImage(lg,W/2-w/2,dy+(D.dh-h)/2,w,h);
+    }else{
+      const name=S.dealer.trim();let fs=D.dh*0.5;ctx.font=F(700,fs);while(ctx.measureText(name).width>L.maxW&&fs>20){fs-=2;ctx.font=F(700,fs)}
+      ctx.fillStyle='#fff';ctx.fillText(name,W/2,dy+(D.dh-fs)/2);
+    }
+  }
   y+=L.g2+G(1);
 
   // 3. lead-in (Medium) + product wordmark
   if(L.pb){
     if(L.lead){ctx.font=F(700,R.learn);ctx.fillStyle='#fff';ctx.fillText(L.lead,W/2,y);y+=R.learn*1.15+R.learn*0.3}
-    L.pb.draw(W/2,y);y+=L.pb.h+g;
+    L.pb.draw(W/2,y);y+=L.pb.h+(L.lines.length?g*0.45:g);
   }
   // 4. body (Book)
   if(L.lines.length){ctx.font=F(400,L.bodySize);ctx.fillStyle='#fff';for(const l of L.lines){ctx.fillText(l,W/2,y);y+=L.bodySize*1.36}y+=g}
@@ -238,6 +273,25 @@ function bindText(id,key,after){const el=$(id);el.value=S[key]??'';el.addEventLi
 bindText('show','show');bindText('city','city');bindText('booth','booth');
 bindText('start','start');bindText('end','end');bindText('lead','lead');
 bindText('pitch','pitch',()=>{S.pitchEdited=true});
+bindText('dealer','dealer');bindText('dealerLead','dealerLead');
+$('dealerOn').checked=!!S.dealerOn;$('dealerOn').addEventListener('change',e=>{S.dealerOn=e.target.checked;changed()});
+$('dealerPanel').checked=!!S.dealerPanel;$('dealerPanel').addEventListener('change',e=>{S.dealerPanel=e.target.checked;changed()});
+$('dealerLogoBtn').addEventListener('click',()=>$('dealerLogoFile').click());
+$('dealerLogoFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;S.dealerLogo=await readFile(f);S.dealerLogoName=f.name;imgs.dealerLogo=await loadImg(S.dealerLogo);e.target.value='';changed()});
+$('dealerLogoClear').addEventListener('click',()=>{S.dealerLogo=null;S.dealerLogoName='';imgs.dealerLogo=null;changed()});
+/* "This story" editor above the preview: edits the headline and body of the stage being previewed */
+function activeStage(){return stageList().find(s=>s.key===active)}
+function syncStoryEdit(){
+  const st=activeStage();const box=$('storyEdit');box.hidden=!st;if(!st)return;
+  const h=$('seHead'),b=$('seBody');
+  if(document.activeElement!==h)h.value=st.st.head;
+  if(document.activeElement!==b)b.value=st.st.body;
+  const notes=[];if(st.def.id==='mid')notes.push('Applies to every middle day. {n} is the day number.');if(st.def.id==='countdown')notes.push('{days} is the number of days out.');
+  if(/\{pitch\}/.test(st.st.body))notes.push('{pitch} pulls in the pitch line from Product focus.');$('seNote').textContent=notes.join(' ');
+}
+function seInput(field){const st=activeStage();if(!st)return;st.st[field]=$(field==='head'?'seHead':'seBody').value;
+  const mirror=$(`st-${st.def.id}-${field}`);if(mirror)mirror.value=st.st[field];changed()}
+$('seHead').addEventListener('input',()=>seInput('head'));$('seBody').addEventListener('input',()=>seInput('body'));
 const dO=$('daysOut');dO.value=S.daysOut;dO.addEventListener('input',()=>{S.daysOut=Math.max(1,parseInt(dO.value)||1);changed(true)});
 
 const sel=$('product');PRODUCTS.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name;sel.appendChild(o)});
@@ -253,7 +307,7 @@ GRADS.forEach(g=>{const b=document.createElement('button');b.type='button';b.cla
 $('splashOn').checked=!!S.splashOn;$('splashOn').addEventListener('change',e=>{S.splashOn=e.target.checked;changed()});
 $('archOn').checked=!!S.arch;$('archOn').addEventListener('change',e=>{S.arch=e.target.checked;changed()});
 $('panelOn').checked=!!S.panel;$('panelOn').addEventListener('change',e=>{S.panel=e.target.checked;changed()});
-const SLIDERS=[['eye','Headline'],['mark','Logomark'],['logo','Show logo'],['meta','Location and date'],['learn','Lead-in'],['word','Product logo'],['body','Body line'],['booth','Booth'],['splash','Ink splash']];
+const SLIDERS=[['eye','Headline'],['mark','Logomark'],['logo','Show logo'],['meta','Location and date'],['dealer','Dealer logo'],['learn','Lead-in'],['word','Product logo'],['body','Body line'],['booth','Booth'],['splash','Ink splash']];
 function buildSliders(){
   const box=$('sliders');box.innerHTML='';
   SLIDERS.forEach(([k,label])=>{
@@ -314,7 +368,7 @@ function buildTabs(){
   const list=stageList();const t=$('tabs');t.innerHTML='';
   if(!list.find(s=>s.key===active))active=list[0]?.key||'';
   list.forEach(s=>{const b=document.createElement('button');b.type='button';b.className='tab';b.role='tab';b.textContent=s.label;b.setAttribute('aria-selected',String(s.key===active));
-    b.addEventListener('click',()=>{active=s.key;buildTabs();draw()});t.appendChild(b)});
+    b.addEventListener('click',()=>{active=s.key;buildTabs();syncStoryEdit();draw()});t.appendChild(b)});
   const rs=RATIOS.filter(r=>S.ratios[r.id]).length;
   $('pkgCount').textContent=`Package: ${list.length} stor${list.length===1?'y':'ies'}, one 1080 × 1920 PNG each`;
 }
@@ -327,16 +381,18 @@ function draw(){
     fig.appendChild(c);const cap=document.createElement('figcaption');cap.textContent=`${r.label} · 1080×${r.H}`;fig.appendChild(cap);pv.appendChild(fig);render(c,r,st)});
 }
 function syncUI(){
-  document.querySelectorAll('.sw').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.id===S.grad)));
+  document.querySelectorAll('#swatches .sw').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.id===S.grad)));
   const g=GRADS.find(x=>x.id===S.grad);$('swName').textContent=g.name;$('contrastWarn').hidden=!g.low;
   const p=PRODUCTS.find(x=>x.id===S.product);$('productWarn').hidden=!p.warn;$('productWarn').textContent=p.warn||'';
   $('logoName').textContent=S.logo?S.logoName||'Logo loaded':'No logo yet. The show name stands in for it.';$('logoClear').hidden=!S.logo;
   $('splashReset').hidden=!S.splash;
   $('exampleChip').hidden=!S.example;
+  $('dealerFields').hidden=!S.dealerOn;
+  $('dealerLogoName').textContent=S.dealerLogo?(S.dealerLogoName||'Logo loaded'):'No logo yet. The dealer name stands in for it.';$('dealerLogoClear').hidden=!S.dealerLogo;
   const dl=dateLine();const n=showDays();$('datePreview').textContent=dl?`Reads as “${dl}” · ${n} show day${n>1?'s':''}`:'Add the first day to set the date line.';
 }
 let raf;
-function changed(rebuildTabs){syncUI();save();buildTabs();cancelAnimationFrame(raf);raf=requestAnimationFrame(draw)}
+function changed(rebuildTabs){syncUI();save();buildTabs();syncStoryEdit();cancelAnimationFrame(raf);raf=requestAnimationFrame(draw)}
 
 /* export */
 let downloads=null;
@@ -701,6 +757,7 @@ $('iywExport').addEventListener('click',async()=>{
   imgs.splashCur=imgs.splash;
   if(S.splash){const s=await loadImg(S.splash);if(s)imgs.splashCur=s}
   if(S.logo)imgs.logo=await loadImg(S.logo);
+  if(S.dealerLogo)imgs.dealerLogo=await loadImg(S.dealerLogo);
   try{await document.fonts.ready}catch(e){}
   changed(true);
   if(P.logo)imgs.prLogo=await loadImg(P.logo);

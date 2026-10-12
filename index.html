@@ -177,6 +177,23 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
     </section>
 
     <section class="sec">
+      <h2>Dealer</h2>
+      <label class="mini"><input type="checkbox" id="dealerOn"> Show a dealer with the show</label>
+      <div id="dealerFields" style="display:flex;flex-direction:column;gap:10px" hidden>
+        <label class="f">Dealer name<input id="dealer" type="text" autocomplete="off" placeholder="Magic Touch"></label>
+        <label class="f">Lead-in<input id="dealerLead" type="text" autocomplete="off"></label>
+        <div class="upl">
+          <input id="dealerLogoFile" type="file" accept="image/*" hidden>
+          <button class="btn" type="button" id="dealerLogoBtn">Upload dealer logo</button>
+          <button class="btn" type="button" id="dealerLogoClear" hidden>Remove</button>
+          <span class="hint" id="dealerLogoName"></span>
+        </div>
+        <label class="mini"><input type="checkbox" id="dealerPanel"> Put the dealer logo on a white panel</label>
+        <p class="hint">The dealer sits under the location and date. Use the booth field for the dealer's booth.</p>
+      </div>
+    </section>
+
+    <section class="sec">
       <h2>Product focus</h2>
       <select id="product" aria-label="Product focus"></select>
       <label class="f">Lead-in<input id="lead" type="text" autocomplete="off"></label>
@@ -236,6 +253,12 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
         <button class="btn primary" type="button" id="exportAll">Download package</button>
       </div>
     </div>
+    <section class="sec" id="storyEdit">
+      <h2>This story</h2>
+      <label class="f">Headline<input id="seHead" type="text" autocomplete="off"></label>
+      <label class="f">Body line<input id="seBody" type="text" autocomplete="off" placeholder="Optional"></label>
+      <p class="hint" id="seNote"></p>
+    </section>
     <div class="stagewrap"><div class="previews" id="previews"></div></div>
     <p class="legend" id="pkgCount"></p>
   </main>
