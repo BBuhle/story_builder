@@ -184,6 +184,8 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
 .colorrow input[type=color]{width:30px;height:28px;border:1px solid var(--line);border-radius:6px;background:none;padding:0;cursor:pointer}
 .steps .tab.done span:first-child::after{content:' ✓';color:var(--accent)}
 .guidetoggle{font-weight:600}
+.pvcol{display:flex;flex-direction:column;gap:8px;min-width:0}
+.pvbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
 </style>
 </head>
 <body>
@@ -382,7 +384,10 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
 
     <main class="main">
       <div class="reviewgrid">
-        <div class="stagewrap"><div class="previews" id="previews"></div></div>
+        <div class="pvcol">
+          <div class="pvbar"><span data-guides></span><span class="hint">Green = cut off or covered by Instagram. Dashed box = link sticker.</span></div>
+          <div class="stagewrap"><div class="previews" id="previews"></div></div>
+        </div>
         <div class="editcol">
           <section class="sec" id="storyEdit">
             <h2 id="seTitle">This story</h2>
@@ -392,7 +397,6 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
             <p class="hint" id="seNote"></p>
             <button class="btn" type="button" id="resetCopy">Reset all copy to defaults</button>
           </section>
-          <div data-guides></div>
           <div class="stepnav">
             <button class="btn lg" type="button" id="tsPrev">← Back</button>
             <button class="btn primary lg" type="button" id="tsNext">Next →</button>

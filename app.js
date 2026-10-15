@@ -45,7 +45,7 @@ const DEFAULT={
   stages:Object.fromEntries(STAGE_DEFS.map(s=>[s.id,{on:true,head:s.head,body:s.body,product:s.product}])),
   logo:null,logoName:'',splash:null,example:true,
   dealerOn:false,dealer:'',dealerLead:'Find Us With',dealerLogo:null,dealerLogoName:'',dealerPanel:false,
-  logoShape:'round',logoShapeColor:'#FFFFFF',dealerShape:'none',dealerShapeColor:'#FFFFFF',link:{on:true,y:76,w:48},frozen:{},safe:false,
+  logoShape:'round',logoShapeColor:'#FFFFFF',dealerShape:'none',dealerShapeColor:'#FFFFFF',link:{on:true,y:79,w:46},frozen:{},safe:true,
   w:{eye:500,logo:700,meta:700,dealer:500,learn:700,body:400,booth:500}
 };
 let S=load();
@@ -53,6 +53,7 @@ let S=load();
 if(S.panel===false&&S.logoShape==='round'&&!S._shapesMigrated){S.logoShape='none'}
 if(S.dealerPanel&&S.dealerShape==='none'&&!S._shapesMigrated){S.dealerShape='round'}
 S._shapesMigrated=true;
+if(!S._postReady){S.safe=true;if(S.link&&S.link.y===76){S.link.y=79;S.link.w=46}S._postReady=true}
 window.SG_KEY=KEY;window.SG_STATE=()=>S;
 let active='announce';
 const imgs={};
@@ -216,6 +217,15 @@ function productBlock(ctx,R,maxW){
 }
 
 const SCALE_KEYS={eye:'eye',mark:'mark',logo:'logo',meta:'meta',dealer:'dealer',learn:'learn',word:'word',body:'body',booth:'bt'};
+/* Where content may sit. Stories keep clear of Instagram's top bar (250 px) and reply bar (340 px),
+   and stop above the link sticker when it is on, so the defaults are post-ready. */
+const SAFE_TOP=250,SAFE_BOTTOM=340;
+function tsBounds(R,W,H){
+  if(H<1500)return{top:R.pad,bottom:H-R.pad};
+  let top=SAFE_TOP+40,bottom=H-SAFE_BOTTOM-30;
+  const L=S.link;if(L&&L.on){const lh=W*(L.w||48)/100*0.23,lt=H*(L.y||78)/100-lh/2;if(lt>H*0.55)bottom=Math.min(bottom,lt-36)}
+  return{top,bottom};
+}
 function layout(ctx,R0,stage,W,H){
   R0=Object.assign({},R0);const sc=S.scale||{};
   for(const k in SCALE_KEYS)R0[SCALE_KEYS[k]]*=((sc[k]??100)/100);
@@ -223,9 +233,11 @@ function layout(ctx,R0,stage,W,H){
   for(let s=1;s>=0.6;s-=0.03){
     const R={};for(const k in R0)R[k]=typeof R0[k]==='number'&&!['H','bl'].includes(k)?R0[k]*s:R0[k];
     R.pad=R0.pad;R.side=R0.side;
+    // readability floors: shrink spacing and logos before small type gets unreadable
+    if(R0.H>1500){R.body=Math.max(R.body,Math.min(R0.body,38));R.bt=Math.max(R.bt,Math.min(R0.bt,50));R.eye=Math.max(R.eye,Math.min(R0.eye,44));R.meta=Math.max(R.meta,Math.min(R0.meta,54));R.learn=Math.max(R.learn,Math.min(R0.learn,56))}
     const L=measure(ctx,R,stage,W,H);
-    const minGap=H*0.03;
-    if(L.used+minGap*(L.groups.length+1)<=H-R.pad*2||s<=0.61)return L;
+    const B=tsBounds(R0,W,H),minGap=H*0.017;L.bounds=B;
+    if(L.used+minGap*(L.groups.length+1)<=B.bottom-B.top||s<=0.61)return L;
   }
 }
 function measure(ctx,R,stage,W,H){
@@ -240,7 +252,7 @@ function measure(ctx,R,stage,W,H){
   const city=S.city.trim(),dl=dateLine();L.metaLines=[];L.metaSize=0;
   if(city||dl){
     const one=[city,dl].filter(Boolean).join('  |  ');let sz=R.meta;ctx.font=F(WT(S,'meta',700),sz);
-    while(ctx.measureText(one).width>maxW&&sz>R.meta*0.8){sz-=1;ctx.font=F(WT(S,'meta',700),sz)}
+    while(ctx.measureText(one).width>maxW&&sz>R.meta*0.7){sz-=1;ctx.font=F(WT(S,'meta',700),sz)}
     if(ctx.measureText(one).width<=maxW){L.metaLines=[one]}
     else{
       sz=R.meta*0.82;const build=()=>{ctx.font=F(WT(S,'meta',700),sz);return [...(city?wrap(ctx,city,maxW):[]),...(dl?[dl]:[])]};
@@ -290,9 +302,10 @@ function renderRaw(canvas,R0,stage){
   const n=L.groups.length;
   const tight=L.pb&&L.lines.length?0.55:0;       // product logo sits closer to the body line
   const units=Math.max(1,(n-1)+2-tight);         // gaps before and after the logo group count double
-  const free=H-R.pad*2-L.used;
-  const g=Math.min(Math.max(H*0.022,free/units),H*0.07);
-  let y=(H-(L.used+g*units))/2;
+  const B=L.bounds||{top:R.pad,bottom:H-R.pad};
+  const free=B.bottom-B.top-L.used;
+  const g=Math.min(Math.max(H*0.012,free/units),H*0.07);
+  let y=B.top+Math.max(0,(B.bottom-B.top-(L.used+g*units))/2);
   const G=(i)=>i<=1?g*2:g;                       // gap after group i
 
   // 1. headline + logomark (Bold header)
