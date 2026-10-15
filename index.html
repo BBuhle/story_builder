@@ -186,6 +186,33 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
 .guidetoggle{font-weight:600}
 .pvcol{display:flex;flex-direction:column;gap:8px;min-width:0}
 .pvbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+
+.typepick{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.typepick{grid-template-columns:1fr}}
+.typecard{font:inherit;text-align:left;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;display:flex;flex-direction:column;gap:10px;cursor:pointer}
+.typecard:hover{border-color:var(--accent)}
+.typecard b{font-size:20px}
+.typecard>span{color:var(--muted);max-width:52ch}
+.resume{display:flex;gap:12px;align-items:center;margin-top:14px;flex-wrap:wrap}
+.f .lab{display:flex;justify-content:space-between;gap:8px}
+.cnt{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--faint)}
+.cnt.full{color:var(--warn)}
+details.more summary{font-size:12px;font-weight:600;color:var(--muted);cursor:pointer}
+.reviewbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:14px}
+.reviewbar .grow{flex:1}
+.tsgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;align-items:start}
+.scard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.scard .hd{display:flex;justify-content:space-between;gap:6px;font-weight:700;font-size:13px}
+.scard .hd span{font-family:var(--mono);font-weight:500;font-size:11px;color:var(--faint)}
+.scard canvas{width:100%;height:auto;border-radius:6px;cursor:zoom-in;display:block}
+.scard input[type=text],.scard textarea{width:100%;font:inherit;font-size:13px;color:var(--fg);background:var(--field);border:1px solid var(--line);border-radius:7px;padding:6px 8px;min-width:0;resize:vertical}
+.scard .note{font-size:11px;color:var(--faint);margin:0}
+details.finetune{margin-top:18px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+details.finetune summary{font-weight:700;cursor:pointer}
+.finegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:12px}
+.finegrid h3{font-size:11px;font-family:var(--mono);font-weight:500;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:6px 0 0;display:flex;justify-content:space-between;align-items:center}
+.lightbox{position:fixed;inset:0;background:rgb(11 17 23 / .82);display:flex;align-items:center;justify-content:center;gap:12px;flex-direction:column;z-index:50;padding:20px}
+.lightbox canvas{max-height:calc(100vh - 100px);max-width:100%;width:auto;height:auto;border-radius:8px}
 </style>
 </head>
 <body>
@@ -265,44 +292,48 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
     <div>
       <button type="button" class="btn back" data-back="stories">← Stories</button>
       <h1>Tradeshow Package</h1>
-      <p id="tsLede">Every story from announcement to thank you, built from one set of show details.</p>
+      <p id="tsLede">Pick the show type, fill in the details, check the stories and download.</p>
     </div>
     <ol class="journey" id="tsJourney" aria-label="Progress">
-      <li data-step="intro">Start</li><li data-step="setup">Show details</li><li data-step="review">Review stories</li>
+      <li data-step="intro">Show type</li><li data-step="setup">Details</li><li data-step="review">Check and download</li>
     </ol>
   </header>
 
-  <!-- Step 1: start -->
+  <!-- Step 1: show type -->
   <section class="tsstep" id="tsIntro">
-    <div class="intro">
-      <div>
-        <h2 class="big">Build a tradeshow package</h2>
-        <p>Give the show details once. You'll then go through each story in order, change any line you like, and download the whole set at the end.</p>
-        <ul class="stagelist" id="tsIntroList"></ul>
-      </div>
-      <div class="introbtns">
-        <button class="btn primary lg" type="button" id="tsStart">Start building package</button>
-        <button class="btn lg" type="button" id="tsResume" hidden>Continue editing</button>
-        <p class="hint" id="tsResumeNote"></p>
-      </div>
+    <div class="typepick">
+      <button type="button" class="typecard" data-type="booth">
+        <b>Sawgrass Booth</b>
+        <span>Our own booth. Full ramp: announcement, countdown, every show day, thank you and a 4:5 feed post.</span>
+        <ul class="stagelist" data-list="booth"></ul>
+      </button>
+      <button type="button" class="typecard" data-type="dealer">
+        <b>Dealer Show</b>
+        <span>A dealer is hosting us. Stories only: announcement, at the show and thank you, with the dealer's logo.</span>
+        <ul class="stagelist" data-list="dealer"></ul>
+      </button>
+    </div>
+    <div class="resume" id="tsResumeRow" hidden>
+      <button class="btn lg" type="button" id="tsResume">Continue editing</button>
+      <span class="hint" id="tsResumeNote"></span>
     </div>
   </section>
 
-  <!-- Step 2: show details -->
+  <!-- Step 2: details -->
   <section class="tsstep setup" id="tsSetup" hidden>
     <section class="sec">
       <h2>The show <span class="chip" id="exampleChip">Example details</span></h2>
-      <label class="f">Show name<input id="show" type="text" autocomplete="off"></label>
+      <label class="f"><span class="lab">Show name <span class="cnt" data-for="show"></span></span><input id="show" type="text" maxlength="30" autocomplete="off"></label>
       <div class="upl">
         <input id="logoFile" type="file" accept="image/*" hidden>
         <button class="btn" type="button" id="logoBtn">Upload show logo</button>
         <button class="btn" type="button" id="logoClear" hidden>Remove</button>
-        <span class="hint" id="logoName">No logo yet. The show name stands in for it.</span>
       </div>
-      <div id="logoShapeBox" class="shapebox"></div>
+      <p class="hint" id="logoName">No logo yet. The show name stands in for it.</p>
+      <details class="more"><summary>Logo background</summary><div id="logoShapeBox" class="shapebox"></div></details>
       <div class="row">
-        <label class="f">Location<input id="city" type="text" autocomplete="off"></label>
-        <label class="f">Booth<input id="booth" type="text" autocomplete="off"></label>
+        <label class="f"><span class="lab">Location <span class="cnt" data-for="city"></span></span><input id="city" type="text" maxlength="34" autocomplete="off"></label>
+        <label class="f"><span class="lab">Booth <span class="cnt" data-for="booth"></span></span><input id="booth" type="text" maxlength="12" autocomplete="off"></label>
       </div>
       <div class="row">
         <label class="f">First day<input id="start" type="date"></label>
@@ -311,27 +342,27 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
       <p class="hint" id="datePreview"></p>
     </section>
 
-    <section class="sec">
+    <section class="sec" id="dealerSec">
       <h2>Dealer</h2>
-      <label class="mini"><input type="checkbox" id="dealerOn"> A dealer is hosting us at this show</label>
-      <div id="dealerFields" style="display:flex;flex-direction:column;gap:10px" hidden>
-        <label class="f">Dealer name<input id="dealer" type="text" autocomplete="off" placeholder="Magic Touch"></label>
-        <label class="f">Lead-in<input id="dealerLead" type="text" autocomplete="off"></label>
+      <input type="checkbox" id="dealerOn" hidden>
+      <div id="dealerFields" style="display:flex;flex-direction:column;gap:10px">
+        <label class="f"><span class="lab">Dealer name <span class="cnt" data-for="dealer"></span></span><input id="dealer" type="text" maxlength="24" autocomplete="off" placeholder="Magic Touch"></label>
         <div class="upl">
           <input id="dealerLogoFile" type="file" accept="image/*" hidden>
           <button class="btn" type="button" id="dealerLogoBtn">Upload dealer logo</button>
           <button class="btn" type="button" id="dealerLogoClear" hidden>Remove</button>
-          <span class="hint" id="dealerLogoName"></span>
         </div>
-        <div id="dealerShapeBox" class="shapebox"></div>
+        <p class="hint" id="dealerLogoName"></p>
+        <details class="more"><summary>Logo background</summary><div id="dealerShapeBox" class="shapebox"></div></details>
+        <label class="f"><span class="lab">Lead-in <span class="cnt" data-for="dealerLead"></span></span><input id="dealerLead" type="text" maxlength="20" autocomplete="off"></label>
       </div>
     </section>
 
     <section class="sec">
       <h2>Product</h2>
       <select id="product" aria-label="Product focus"></select>
-      <label class="f">Lead-in<input id="lead" type="text" autocomplete="off"></label>
-      <label class="f">Pitch line<input id="pitch" type="text" autocomplete="off"></label>
+      <label class="f" id="leadWrap"><span class="lab">Lead-in <span class="cnt" data-for="lead"></span></span><input id="lead" type="text" maxlength="18" autocomplete="off"></label>
+      <label class="f"><span class="lab">Pitch line <span class="cnt" data-for="pitch"></span></span><input id="pitch" type="text" maxlength="70" autocomplete="off"></label>
       <p class="warn" id="productWarn" hidden></p>
     </section>
 
@@ -340,82 +371,68 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
       <div class="swatches" id="swatches" role="group" aria-label="Background gradient"></div>
       <p class="swname" id="swName"></p>
       <p class="warn" id="contrastWarn" hidden>White type gets thin on yellow. Check each story before posting, or pick another gradient.</p>
-      <label class="mini"><input type="checkbox" id="archOn"> Arch the headline</label>
-      <label class="mini"><input type="checkbox" id="splashOn"> Ink splash behind the show logo</label>
-      <div class="upl">
-        <input id="splashFile" type="file" accept="image/png,image/webp" hidden>
-        <button class="btn" type="button" id="splashBtn">Replace splash</button>
-        <button class="btn" type="button" id="splashReset" hidden>Use default</button>
-      </div>
     </section>
 
     <section class="sec">
       <h2>Stories in the package</h2>
       <div id="stages" class="stagechecks"></div>
-      <label class="f" style="max-width:140px">Countdown days out<input id="daysOut" type="number" min="1" max="60"></label>
-      <p class="hint">Day 1, the middle days and the last day come from the show dates.</p>
+      <label class="f" id="daysOutWrap" style="max-width:160px">Countdown days out<input id="daysOut" type="number" min="1" max="60"></label>
     </section>
 
     <div class="setupgo">
       <span class="hint" id="tsSetupMsg"></span>
       <button class="btn lg" type="button" data-step-go="intro">Back</button>
-      <button class="btn primary lg" type="button" id="tsGo">Go →</button>
+      <button class="btn primary lg" type="button" id="tsGo">See the stories →</button>
     </div>
   </section>
 
-  <!-- Step 3: review each story -->
-  <section class="tsstep review" id="tsReview" hidden>
-    <aside class="rail">
-      <section class="sec">
-        <h2>Stories <span class="tok" id="tsCount"></span></h2>
-        <div class="steps" id="tabs" role="tablist" aria-label="Stories"></div>
-        <button class="btn" type="button" data-step-go="setup">Edit show details</button>
-      </section>
-      <section class="sec">
-        <h2>Spacing <button class="btn mini-btn" type="button" id="tsResetGaps">Reset</button></h2>
-        <div id="tsGaps" class="sliders"></div>
-        <p class="hint">Pixels at full size. Like sizes, this carries forward to the next stories and never changes ones you've moved past.</p>
-      </section>
-      <section class="sec">
-        <h2>Link sticker</h2>
-        <div id="tsLink"></div>
-      </section>
-      <section class="sec">
-        <h2>Size and weight <button class="btn mini-btn" type="button" id="resetSizes">Reset</button></h2>
-        <div id="sliders" class="sliders"></div>
-        <p class="hint">Changes apply to this story and carry forward to the next ones. Stories you have moved past keep their own settings.</p>
-      </section>
-    </aside>
+  <!-- Step 3: check and download -->
+  <section class="tsstep" id="tsReview" hidden>
+    <div class="reviewbar">
+      <b id="tsCount"></b>
+      <span data-guides></span>
+      <label class="mini"><input type="checkbox" id="tsLinkOn"> Link sticker zone</label>
+      <span class="grow"></span>
+      <span class="status" id="status" role="status"></span>
+      <button class="btn" type="button" id="resetCopy">Reset copy</button>
+      <button class="btn" type="button" data-step-go="setup">Edit details</button>
+      <button class="btn primary" type="button" id="exportAll">Download all</button>
+    </div>
+    <div class="tsgrid" id="tsGrid"></div>
+    <p class="legend" id="pkgCount"></p>
 
-    <main class="main">
-      <div class="reviewgrid">
-        <div class="pvcol">
-          <div class="pvbar"><span data-guides></span><span class="hint">Green = cut off or covered by Instagram. Dashed box = link sticker.</span></div>
-          <div class="stagewrap"><div class="previews" id="previews"></div></div>
-        </div>
-        <div class="editcol">
-          <section class="sec" id="storyEdit">
-            <h2 id="seTitle">This story</h2>
-            <label class="f">Headline<input id="seHead" type="text" autocomplete="off"></label>
-            <label class="f">Body line<textarea id="seBody" rows="3" placeholder="Optional"></textarea></label>
-            <label class="mini"><input type="checkbox" id="seProd"> Show the product block</label>
-            <p class="hint" id="seNote"></p>
-            <button class="btn" type="button" id="resetCopy">Reset all copy to defaults</button>
-          </section>
-          <div class="stepnav">
-            <button class="btn lg" type="button" id="tsPrev">← Back</button>
-            <button class="btn primary lg" type="button" id="tsNext">Next →</button>
+    <details class="finetune" id="tsFine">
+      <summary>Fine-tune (optional)</summary>
+      <div class="finegrid">
+        <section class="sec">
+          <h3>Style</h3>
+          <label class="mini"><input type="checkbox" id="archOn"> Arch the headline</label>
+          <label class="mini"><input type="checkbox" id="splashOn"> Ink splash behind the show logo</label>
+          <div class="upl">
+            <input id="splashFile" type="file" accept="image/png,image/webp" hidden>
+            <button class="btn" type="button" id="splashBtn">Replace splash</button>
+            <button class="btn" type="button" id="splashReset" hidden>Use default</button>
           </div>
-          <div class="actions">
-            <button class="btn" type="button" id="exportOne">Download this story</button>
-            <button class="btn" type="button" id="exportAll">Download package</button>
-          </div>
-          <p class="status" id="status" role="status"></p>
-          <p class="legend" id="pkgCount"></p>
-        </div>
+          <h3>Link sticker position</h3>
+          <div id="tsLink"></div>
+        </section>
+        <section class="sec">
+          <h3>Size and weight <button class="btn mini-btn" type="button" id="resetSizes">Reset</button></h3>
+          <div id="sliders" class="sliders"></div>
+        </section>
+        <section class="sec">
+          <h3>Spacing <button class="btn mini-btn" type="button" id="tsResetGaps">Reset</button></h3>
+          <div id="tsGaps" class="sliders"></div>
+        </section>
       </div>
-    </main>
+      <p class="hint">These apply to every story in the package.</p>
+    </details>
   </section>
+
+  <div class="lightbox" id="tsLight" hidden>
+    <button type="button" class="btn" id="tsLightClose">Close</button>
+    <canvas id="tsLightCanvas" aria-label="Story preview"></canvas>
+  </div>
 </div>
 
 <div class="wrap" id="pr" hidden>

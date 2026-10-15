@@ -36,6 +36,9 @@ const STAGE_DEFS=[
   {id:'last',name:'Last day',when:'At show',head:'Last Day to Visit',body:'Final chance to catch live demos at {show}.',product:true},
   {id:'thanks',name:'Thank you',when:'Post-show',head:'Thank You, {show}!',body:'Thanks to everyone who stopped by. See you next time.',product:false},
   {id:'feed',name:'Feed post (4:5)',when:'Post-show',head:'Thanks for Visiting Us',body:'Great seeing everyone at {show}. See you next time.',product:true,ratio:'4x5'},
+  {id:'d_announce',type:'dealer',name:'Announcement',when:'Pre-show',head:"We'll See You Soon!",body:'{pitch}',product:false},
+  {id:'d_show',type:'dealer',name:'At the show',when:'At show',head:"We're Here!",body:'Come see {product} printing live with {dealer}.',product:false},
+  {id:'d_thanks',type:'dealer',name:'Thank you',when:'Post-show',head:'Thank You, {show}!',body:'Thanks to everyone who stopped by.',product:false},
 ];
 
 const DEFAULT={
@@ -45,7 +48,7 @@ const DEFAULT={
   stages:Object.fromEntries(STAGE_DEFS.map(s=>[s.id,{on:true,head:s.head,body:s.body,product:s.product}])),
   logo:null,logoName:'',splash:null,example:true,
   dealerOn:false,dealer:'',dealerLead:'Find Us With',dealerLogo:null,dealerLogoName:'',dealerPanel:false,
-  logoShape:'round',logoShapeColor:'#FFFFFF',dealerShape:'none',dealerShapeColor:'#FFFFFF',link:{on:true,y:79,w:46},frozen:{},safe:true,gap:{top:0,head:0,meta:0,dealer:0,logo:0,lead:0,product:0,body:0},
+  type:'booth',logoShape:'round',logoShapeColor:'#FFFFFF',dealerShape:'none',dealerShapeColor:'#FFFFFF',link:{on:true,y:79,w:46},frozen:{},safe:true,gap:{top:0,head:0,meta:0,dealer:0,logo:0,lead:0,product:0,body:0},
   w:{eye:500,logo:700,meta:700,dealer:500,learn:700,body:400,booth:500}
 };
 let S=load();
@@ -84,6 +87,7 @@ function showDays(){const a=pd(S.start),b=pd(S.end);if(!a||!b||b<a)return 1;retu
 /* ---------- stages actually produced ---------- */
 function stageList(){
   const n=showDays(),out=[];
+  if(S.type==='dealer'){['d_announce','d_show','d_thanks'].forEach(id=>{const def=STAGE_DEFS.find(s=>s.id===id),st=S.stages[id];if(st&&st.on)out.push({key:id,def,st,n:1,label:def.name})});return out}
   const add=(def,extra)=>{const st=S.stages[def.id];if(st&&st.on)out.push(Object.assign({key:def.id,def,st,n:1,label:def.name},extra||{}))};
   const d=id=>STAGE_DEFS.find(s=>s.id===id);
   add(d('announce'));add(d('countdown'),{label:S.daysOut==1?'Countdown (Tomorrow)':`Countdown (${S.daysOut} days)`});
@@ -101,7 +105,7 @@ function fill(t,stage){
   let s=String(t||'');
   if(stage.def.id==='countdown'&&days===1&&s==='{days} Days to Go')s='Starts Tomorrow';
   return s.replaceAll('{show}',S.show.trim()).replaceAll('{city}',S.city.trim()).replaceAll('{booth}',S.booth.trim())
-    .replaceAll('{days}',String(days)).replaceAll('{n}',String(stage.n)).replaceAll('{pitch}',S.pitch.trim()).replace(/\s+/g,' ').trim();
+    .replaceAll('{days}',String(days)).replaceAll('{product}',(PRODUCTS.find(p=>p.id===S.product)||{}).id==='none'?'Sawgrass':(PRODUCTS.find(p=>p.id===S.product)||{name:'Sawgrass'}).name).replaceAll('{dealer}',S.dealer.trim()||'our dealer').replaceAll('{n}',String(stage.n)).replaceAll('{pitch}',S.pitch.trim()).replace(/\s+/g,' ').trim();
 }
 
 /* ---------- drawing ---------- */
@@ -128,6 +132,31 @@ function logoBlock(ctx,{img,text,weight,shape,color,cx,cy,maxW,maxH,onColor}){
     else{const x=cx-w/2-pad,y=cy-h/2-pad,ww=w+pad*2,hh=h+pad*2,r=shape==='pill'?hh/2:shape==='round'?Math.min(24,hh*0.14):0;rr(ctx,x,y,ww,hh,r)}
     ctx.fill();ctx.restore()}
   drawIt(cx-w/2,cy-h/2);
+}
+/* Uploaded logos: trim empty margins, then pick a background automatically.
+   Dark logos (or logos on a solid light background) get a white rounded box; light logos sit on the gradient. */
+async function prepLogo(dataUrl){
+  const im=await loadImg(dataUrl);if(!im)return{url:dataUrl,shape:'round',note:''};
+  const k=Math.min(1,1600/Math.max(im.width,im.height)),w=Math.round(im.width*k),h=Math.round(im.height*k);
+  const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.drawImage(im,0,0,w,h);
+  const d=x.getImageData(0,0,w,h).data;const px=(i,j)=>(j*w+i)*4;
+  const corners=[[0,0],[w-1,0],[0,h-1],[w-1,h-1]].map(([i,j])=>d.slice(px(i,j),px(i,j)+4));
+  const transparent=corners.some(p=>p[3]<200);
+  const bg=corners.reduce((s,p)=>[s[0]+p[0]/4,s[1]+p[1]/4,s[2]+p[2]/4],[0,0,0]);
+  let x0=w,y0=h,x1=-1,y1=-1,ls=0,n=0;
+  for(let j=0;j<h;j+=2)for(let i=0;i<w;i+=2){const p=px(i,j),r=d[p],g=d[p+1],b=d[p+2],al=d[p+3];
+    const ink=transparent?al>24:(Math.abs(r-bg[0])+Math.abs(g-bg[1])+Math.abs(b-bg[2])>60);
+    if(ink){if(i<x0)x0=i;if(i>x1)x1=i;if(j<y0)y0=j;if(j>y1)y1=j;ls+=(0.299*r+0.587*g+0.114*b)/255;n++}}
+  if(x1<0)return{url:dataUrl,shape:'round',note:''};
+  const pad=Math.round(Math.max(x1-x0,y1-y0)*0.03);x0=Math.max(0,x0-pad);y0=Math.max(0,y0-pad);x1=Math.min(w-1,x1+pad);y1=Math.min(h-1,y1+pad);
+  const o=document.createElement('canvas');o.width=x1-x0+1;o.height=y1-y0+1;o.getContext('2d').drawImage(c,x0,y0,o.width,o.height,0,0,o.width,o.height);
+  const inkLum=n?ls/n:0.5,bgLum=(0.299*bg[0]+0.587*bg[1]+0.114*bg[2])/255;
+  let shape,note;
+  if(!transparent&&bgLum>0.85){shape='round';note='on a white box (logo has a white background)'}
+  else if(!transparent){shape='none';note='placed as uploaded (solid background)'}
+  else if(inkLum<0.55){shape='round';note='on a white box so the dark logo reads'}
+  else{shape='none';note='straight on the gradient (light logo)'}
+  return{url:o.toDataURL('image/png'),shape,note};
 }
 function shapeControls(boxId,obj,shapeKey,colorKey,cb){
   const box=$(boxId);box.innerHTML='';
@@ -267,12 +296,12 @@ function measure(ctx,R,stage,W,H){
   // Dealer lockup: "Find Us With" + dealer logo (or name)
   L.dealer=null;
   if(S.dealerOn&&(imgs.dealerLogo||S.dealer.trim())){
-    const lead=S.dealerLead.trim(),ls=R.meta*0.72,dh=R.dealer;
+    const dk=S.type==='dealer'?1.35:1,lead=S.dealerLead.trim(),ls=R.meta*0.72*(S.type==='dealer'?1.15:1),dh=R.dealer*dk;
     L.dealer={lead,ls,dh,top:R.meta*1.1+X('dealer')};
     L.dealer.h=L.dealer.top+(lead?ls*1.45:0)+dh;
   }
   L.g2=L.logoH+L.metaH+(L.dealer?L.dealer.h:0);
-  const showProduct=stage.st.product&&S.product!=='none';
+  const showProduct=stage.st.product&&S.product!=='none'&&S.type!=='dealer';
   L.pb=showProduct?productBlock(ctx,R,maxW):null;
   L.lead=S.lead.trim();
   L.g3=L.pb?((L.lead?R.learn*1.15+R.learn*0.3+X('lead'):0)+L.pb.h):0;
@@ -290,7 +319,7 @@ function measure(ctx,R,stage,W,H){
 const FROZEN_KEYS=['scale','w','splashSize','link','gap'];
 function styleSnapshot(){const o={};FROZEN_KEYS.forEach(k=>o[k]=structuredClone(S[k]));return o}
 function render(canvas,R0,stage,guide){
-  const fz=S.frozen&&S.frozen[stage.key];const base=S;
+  const fz=null;const base=S;
   if(fz)S=Object.assign({},base,structuredClone(fz));
   try{renderRaw(canvas,R0,stage);if(guide)previewOverlays(canvas,R0.H>1500?S.link:null)}finally{S=base}
 }
@@ -360,22 +389,8 @@ bindText('dealer','dealer');bindText('dealerLead','dealerLead');
 $('dealerOn').checked=!!S.dealerOn;$('dealerOn').addEventListener('change',e=>{S.dealerOn=e.target.checked;changed()});
 shapeControls('dealerShapeBox',S,'dealerShape','dealerShapeColor',()=>changed());
 $('dealerLogoBtn').addEventListener('click',()=>$('dealerLogoFile').click());
-$('dealerLogoFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;S.dealerLogo=await readFile(f);S.dealerLogoName=f.name;imgs.dealerLogo=await loadImg(S.dealerLogo);e.target.value='';changed()});
+$('dealerLogoFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;const p=await prepLogo(await readFile(f));S.dealerLogo=p.url;S.dealerLogoName=f.name;S.dealerLogoNote=p.note;S.dealerShape=p.shape;S.dealerShapeColor='#FFFFFF';imgs.dealerLogo=await loadImg(S.dealerLogo);shapeControls('dealerShapeBox',S,'dealerShape','dealerShapeColor',()=>changed());e.target.value='';changed()});
 $('dealerLogoClear').addEventListener('click',()=>{S.dealerLogo=null;S.dealerLogoName='';imgs.dealerLogo=null;changed()});
-/* "This story" editor above the preview: edits the headline and body of the stage being previewed */
-function activeStage(){return stageList().find(s=>s.key===active)}
-function syncStoryEdit(){
-  const st=activeStage();const box=$('storyEdit');box.hidden=!st;if(!st)return;
-  const h=$('seHead'),b=$('seBody');$('seTitle').textContent=st.label;$('seProd').checked=!!st.st.product;
-  if(document.activeElement!==h)h.value=st.st.head;
-  if(document.activeElement!==b)b.value=st.st.body;
-  const notes=[];if(st.def.id==='mid')notes.push('Applies to every middle day. {n} is the day number.');if(st.def.id==='thanks')notes.push('{show} is the show name.');if(st.def.id==='countdown')notes.push('{days} is the number of days out.');
-  if(/\{pitch\}/.test(st.st.body))notes.push('{pitch} pulls in the pitch line from Product focus.');$('seNote').textContent=notes.join(' ');
-}
-function seInput(field){const st=activeStage();if(!st)return;st.st[field]=$(field==='head'?'seHead':'seBody').value;
-  const mirror=$(`st-${st.def.id}-${field}`);if(mirror)mirror.value=st.st[field];changed()}
-$('seProd').addEventListener('change',()=>{const st=activeStage();if(!st)return;st.st.product=$('seProd').checked;changed()});
-$('seHead').addEventListener('input',()=>seInput('head'));$('seBody').addEventListener('input',()=>seInput('body'));
 const dO=$('daysOut');dO.value=S.daysOut;dO.addEventListener('input',()=>{S.daysOut=Math.max(1,parseInt(dO.value)||1);changed(true)});
 
 const sel=$('product');PRODUCTS.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name;sel.appendChild(o)});
@@ -408,22 +423,22 @@ $('resetSizes').addEventListener('click',()=>{Object.keys(S.scale).forEach(k=>S.
 
 function buildStages(){
   const box=$('stages');box.innerHTML='';
-  STAGE_DEFS.forEach(def=>{
+  STAGE_DEFS.filter(d=>(d.type||'booth')===(S.type||'booth')).forEach(def=>{
     const st=S.stages[def.id];
     const l=document.createElement('label');
     l.innerHTML=`<input type="checkbox" id="st-${def.id}-on"> ${def.id==='mid'?'Middle days':def.name}<span class="when">${def.when}</span>`;
     const on=l.querySelector('input');on.checked=st.on;
-    on.addEventListener('change',()=>{st.on=on.checked;changed(true);tsIntroList()});
+    on.addEventListener('change',()=>{st.on=on.checked;changed(true)});
     box.appendChild(l);
   });
 }
 buildStages();
-$('resetCopy').addEventListener('click',()=>{STAGE_DEFS.forEach(s=>{const st=S.stages[s.id];st.head=s.head;st.body=s.body;st.product=s.product});S.lead='Learn About';$('lead').value=S.lead;S.pitchEdited=false;S.pitch=PRODUCTS.find(x=>x.id===S.product).pitch;$('pitch').value=S.pitch;buildStages();changed()});
+$('resetCopy').addEventListener('click',()=>{STAGE_DEFS.forEach(s=>{const st=S.stages[s.id];st.head=s.head;st.body=s.body;st.product=s.product});S.lead='Learn About';$('lead').value=S.lead;S.pitchEdited=false;S.pitch=PRODUCTS.find(x=>x.id===S.product).pitch;$('pitch').value=S.pitch;buildStages();changed(true)});
 
 /* uploads */
 function readFile(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
 $('logoBtn').addEventListener('click',()=>$('logoFile').click());
-$('logoFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;S.logo=await readFile(f);S.logoName=f.name;imgs.logo=await loadImg(S.logo);e.target.value='';changed()});
+$('logoFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;const p=await prepLogo(await readFile(f));S.logo=p.url;S.logoName=f.name;S.logoNote=p.note;S.logoShape=p.shape;S.logoShapeColor='#FFFFFF';imgs.logo=await loadImg(S.logo);shapeControls('logoShapeBox',S,'logoShape','logoShapeColor',()=>changed());S.example=false;e.target.value='';changed()});
 $('logoClear').addEventListener('click',()=>{S.logo=null;S.logoName='';imgs.logo=null;changed()});
 $('splashBtn').addEventListener('click',()=>$('splashFile').click());
 $('splashFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;S.splash=await readFile(f);imgs.splashCur=await loadImg(S.splash);e.target.value='';changed()});
@@ -446,39 +461,53 @@ $('fontFile').addEventListener('change',async e=>{
 });
 $('fontClear').addEventListener('click',()=>{bcIdb.del('fonts');$('fontStatus').textContent='Fonts forgotten. Reload the page to switch back to Helvetica.';$('fontClear').hidden=true});
 
-/* tabs + previews */
-function buildTabs(){
-  const list=stageList();const t=$('tabs');t.innerHTML='';
-  if(!list.find(s=>s.key===active))active=list[0]?.key||'';
-  list.forEach((s,i)=>{const b=document.createElement('button');b.type='button';b.className='tab';b.role='tab';
-    b.innerHTML=`<span></span><span class="n">${i+1}/${list.length}</span>`;b.firstChild.textContent=s.label;b.setAttribute('aria-selected',String(s.key===active));
-    if(S.frozen&&S.frozen[s.key])b.classList.add('done');
-    b.addEventListener('click',()=>tsSelect(s.key));t.appendChild(b)});
-  $('tsCount').textContent=list.length?`${list.length} stories`:'';
-  $('pkgCount').textContent=`Package: ${list.length} files, Stories at 1080 × 1920 and the feed post at 1080 × 1350`;
-  tsNav();
+/* Review grid: every story at once, headline and body editable under each */
+function buildGrid(){
+  const g=$('tsGrid');g.innerHTML='';const list=stageList();
+  list.forEach((s,i)=>{const card=document.createElement('div');card.className='scard';card.dataset.key=s.key;
+    card.innerHTML=`<div class="hd"><b></b><span>${i+1}/${list.length}</span></div><canvas></canvas>
+      <label class="f"><span class="lab">Headline <span class="cnt"></span></span><input type="text" maxlength="32"></label>
+      <label class="f">Body line<textarea rows="2" maxlength="90"></textarea></label>
+      ${S.type!=='dealer'?'<label class="mini"><input type="checkbox"> Product block</label>':''}
+      ${s.def.id==='mid'?'<p class="note">Shared by every middle day. {n} is the day number.</p>':''}`;
+    card.querySelector('b').textContent=s.label;
+    const hi=card.querySelector('input[type=text]'),ta=card.querySelector('textarea'),pc=card.querySelector('input[type=checkbox]'),cn=card.querySelector('.cnt'),cv=card.querySelector('canvas');
+    hi.value=s.st.head;ta.value=s.st.body;if(pc)pc.checked=!!s.st.product;cn.textContent=`${hi.value.length}/32`;
+    hi.addEventListener('input',()=>{s.st.head=hi.value;cn.textContent=`${hi.value.length}/32`;cn.classList.toggle('full',hi.value.length>=32);S.example=false;save();renderCard(s.key)});
+    ta.addEventListener('input',()=>{s.st.body=ta.value;S.example=false;save();renderCard(s.key)});
+    if(pc)pc.addEventListener('change',()=>{s.st.product=pc.checked;save();renderCard(s.key)});
+    cv.addEventListener('click',()=>openLight(s.key));
+    g.appendChild(card)});
+  const n=list.length,feed=list.some(s=>s.def.ratio==='4x5');
+  $('tsCount').textContent=`${n} ${n===1?'story':'stories'}`;
+  $('pkgCount').textContent=`Downloads ${n} PNGs: Stories at 1080 × 1920${feed?' and the feed post at 1080 × 1350':''}. Words in braces fill in automatically: {show}, {pitch}, {product}, {dealer}, {days}, {n}. Click a story to see it larger.`;
+  renderGrid();
 }
-function draw(){
-  const pv=$('previews');pv.innerHTML='';
-  const st=stageList().find(s=>s.key===active);
-  const rs=st?[ratioFor(st)]:[];
-  if(!st||!rs.length){pv.innerHTML='<p class="empty">Turn on at least one stage and one size to see a preview.</p>';return}
-  rs.forEach(r=>{const fig=document.createElement('figure');fig.className='r'+r.id;const c=document.createElement('canvas');c.setAttribute('aria-label',`${st.label} at ${r.label}`);
-    fig.appendChild(c);const cap=document.createElement('figcaption');cap.textContent=`${r.label} · 1080×${r.H}`;fig.appendChild(cap);pv.appendChild(fig);render(c,r,st,true)});
-}
+function renderCard(key){const st=stageList().find(s=>s.key===key);const card=document.querySelector(`#tsGrid .scard[data-key="${key}"]`);if(!st||!card)return;
+  render(card.querySelector('canvas'),ratioFor(st),st,true);if(lightKey===key)drawLight()}
+let gridRaf;function renderGrid(){cancelAnimationFrame(gridRaf);gridRaf=requestAnimationFrame(()=>{stageList().forEach(s=>renderCard(s.key))})}
+function draw(){if(tsStep==='review')renderGrid()}
+let lightKey=null;
+function openLight(key){lightKey=key;$('tsLight').hidden=false;drawLight()}
+function drawLight(){const st=stageList().find(s=>s.key===lightKey);if(!st)return;render($('tsLightCanvas'),ratioFor(st),st,true)}
+function closeLight(){lightKey=null;$('tsLight').hidden=true}
+$('tsLightClose').addEventListener('click',closeLight);$('tsLight').addEventListener('click',e=>{if(e.target.id==='tsLight')closeLight()});
+document.addEventListener('keydown',e=>{if(lightKey===null)return;const list=stageList(),i=list.findIndex(s=>s.key===lightKey);
+  if(e.key==='Escape')closeLight();if(e.key==='ArrowRight'&&i<list.length-1){lightKey=list[i+1].key;drawLight()}if(e.key==='ArrowLeft'&&i>0){lightKey=list[i-1].key;drawLight()}});
 function syncUI(){
   document.querySelectorAll('#swatches .sw').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.id===S.grad)));
   const g=GRADS.find(x=>x.id===S.grad);$('swName').textContent=g.name;$('contrastWarn').hidden=!g.low;
   const p=PRODUCTS.find(x=>x.id===S.product);$('productWarn').hidden=!p.warn;$('productWarn').textContent=p.warn||'';
-  $('logoName').textContent=S.logo?S.logoName||'Logo loaded':'No logo yet. The show name stands in for it.';$('logoClear').hidden=!S.logo;
+  $('logoName').textContent=S.logo?(S.logoName||'Logo loaded')+(S.logoNote?' · '+S.logoNote:''):'No logo yet. The show name stands in for it.';$('logoClear').hidden=!S.logo;
   $('splashReset').hidden=!S.splash;
   $('exampleChip').hidden=!S.example;
-  $('dealerFields').hidden=!S.dealerOn;
-  $('dealerLogoName').textContent=S.dealerLogo?(S.dealerLogoName||'Logo loaded'):'No logo yet. The dealer name stands in for it.';$('dealerLogoClear').hidden=!S.dealerLogo;
+  $('dealerSec').hidden=S.type!=='dealer';$('leadWrap').hidden=S.type==='dealer';$('daysOutWrap').hidden=S.type==='dealer';
+  document.querySelectorAll('#tsSetup .cnt[data-for]').forEach(c=>{const el=$(c.dataset.for);if(!el)return;const m=Number(el.getAttribute('maxlength'))||0;c.textContent=`${el.value.length}/${m}`;c.classList.toggle('full',el.value.length>=m)});
+  $('dealerLogoName').textContent=S.dealerLogo?(S.dealerLogoName||'Logo loaded')+(S.dealerLogoNote?' · '+S.dealerLogoNote:''):'No logo yet. The dealer name stands in for it.';$('dealerLogoClear').hidden=!S.dealerLogo;
   const dl=dateLine();const n=showDays();$('datePreview').textContent=dl?`Reads as “${dl}” · ${n} show day${n>1?'s':''}`:'Add the first day to set the date line.';
 }
 let raf;
-function changed(rebuildTabs){syncUI();save();buildTabs();syncStoryEdit();cancelAnimationFrame(raf);raf=requestAnimationFrame(draw)}
+function changed(rebuild){syncUI();save();if(tsStep==='review'){if(rebuild)buildGrid();else renderGrid()}}
 
 /* export */
 let downloads=null;
@@ -487,7 +516,7 @@ function toBlob(c){return new Promise(r=>c.toBlob(r,'image/png'))}
 async function exportStages(list){
   if(!downloads){$('status').textContent='Downloads are not available in this browser.';return}
   if(!list.length){$('status').textContent='Nothing to export. Turn on a stage and a size.';return}
-  const btns=[$('exportOne'),$('exportAll'),$('tsNext')];btns.forEach(b=>b.disabled=true);
+  const btns=[$('exportAll')];btns.forEach(b=>b.disabled=true);
   try{
     $('status').textContent='Rendering…';
     const zip=new JSZip();const base=slug(S.show);
@@ -508,48 +537,38 @@ try{document.querySelector('.t-trade').style.backgroundImage=`url(${ASSETS.vfbg}
 function show(view){['home','stories','tradeshow','pr','holiday','words','blog','fast'].forEach(v=>$(v).hidden=v!==view);window.scrollTo(0,0);if(view==='tradeshow'){tsGoto('intro')}if(view==='pr')prDraw();if(view==='holiday')holDraw();if(view==='words')iywDraw();if(view==='blog')bcDraw();if(view==='fast')fpDraw()}
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{show(b.dataset.go);try{history.replaceState(null,'','#'+b.dataset.go)}catch(e){}}));
 document.querySelectorAll('[data-back]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.back;show(v);try{history.replaceState(null,'','#'+v)}catch(e){}}));
-/* Tradeshow journey: start → show details → review each story → finish and download */
+/* Tradeshow journey: show type → details → check and download */
 let tsStep='intro';
-function tsIntroList(){const ul=$('tsIntroList');ul.innerHTML='';stageList().forEach(s=>{const li=document.createElement('li');li.textContent=s.label;ul.appendChild(li)})}
+function tsIntroList(){document.querySelectorAll('#tsIntro [data-list]').forEach(ul=>{const t=ul.dataset.list;ul.innerHTML='';
+  const names=t==='dealer'?['Announcement','At the show','Thank you']:['Announcement','Countdown','Day 1','Each show day','Last day','Thank you','Feed post (4:5)'];
+  names.forEach(n=>{const li=document.createElement('li');li.textContent=n;ul.appendChild(li)})})}
+function setType(t){S.type=t;S.dealerOn=t==='dealer';buildStages();tsBuildGaps();syncUI();save()}
 function tsGoto(step){
   tsStep=step;['intro','setup','review'].forEach(k=>{$('ts'+k[0].toUpperCase()+k.slice(1)).hidden=k!==step});
   const order=['intro','setup','review'];document.querySelectorAll('#tsJourney li').forEach(li=>{const i=order.indexOf(li.dataset.step),c=order.indexOf(step);li.classList.toggle('on',i===c);li.classList.toggle('done',i<c)});
-  if(step==='intro'){tsIntroList();const has=!S.example;$('tsResume').hidden=!has;$('tsResumeNote').textContent=has?`Picks up ${S.show.trim()||'your last package'} where you left off.`:''}
-  if(step==='review'){tsBuildGaps();buildTabs();syncStoryEdit();draw()}
+  if(step==='intro'){tsIntroList();const has=!S.example;$('tsResumeRow').hidden=!has;$('tsResumeNote').textContent=has?`${S.type==='dealer'?'Dealer show':'Sawgrass booth'}: ${S.show.trim()||'your last package'}`:''}
+  if(step==='setup'){buildStages();syncUI()}
+  if(step==='review'){tsBuildGaps();tsLinkUI();$('tsLinkOn').checked=!!S.link.on;buildGrid()}
   window.scrollTo(0,0);
 }
-function tsNav(){
-  const list=stageList(),i=list.findIndex(s=>s.key===active),last=i===list.length-1;
-  $('tsPrev').textContent=i<=0?'← Show details':'← Back';
-  $('tsNext').textContent=last?'Finish and download':'Next →';
-}
-/* Moving off a story locks its sizes, weights and link zone, so edits on later stories never change it.
-   Coming back to a story unlocks it and loads its settings into the controls. */
-function tsSelect(key,freezeCurrent=true){
-  if(freezeCurrent&&active&&active!==key){S.frozen=S.frozen||{};S.frozen[active]=styleSnapshot()}
-  const fz=S.frozen&&S.frozen[key];
-  if(fz){FROZEN_KEYS.forEach(k=>{if(fz[k]!==undefined)S[k]=structuredClone(fz[k])});delete S.frozen[key];buildSliders();tsLinkUI();tsBuildGaps()}
-  active=key;save();buildTabs();syncStoryEdit();draw();window.scrollTo(0,0);
-}
+document.querySelectorAll('#tsIntro .typecard').forEach(b=>b.addEventListener('click',()=>{setType(b.dataset.type);tsGoto('setup')}));
 const TS_GAPS=[['top','Move everything up or down'],['head','Headline → show logo'],['meta','Show logo → location'],['dealer','Location → dealer'],['logo','Show block → product'],['lead','Lead-in → product logo'],['product','Product → body line'],['body','Body line → booth']];
 function tsBuildGaps(){const box=$('tsGaps');if(!box)return;box.innerHTML='';S.gap=Object.assign({top:0,head:0,meta:0,dealer:0,logo:0,lead:0,product:0,body:0},S.gap||{});
   TS_GAPS.forEach(([k,label])=>{if(k==='dealer'&&!S.dealerOn)return;const row=document.createElement('div');row.className='sl';
     row.innerHTML=`<span>${label}</span><input type="range" min="${k==='top'?-300:-120}" max="${k==='top'?300:260}" step="1" aria-label="${label}"><output>${S.gap[k]} px</output><span></span>`;
     const i=row.querySelector('input'),o=row.querySelector('output');i.value=S.gap[k];
     i.addEventListener('input',()=>{S.gap[k]=Number(i.value);o.textContent=i.value+' px';save();draw()});box.appendChild(row)})}
-function tsLinkUI(){linkControls('tsLink',()=>S.link,()=>{save();draw()})}
-$('tsStart').addEventListener('click',()=>{S.frozen={};tsGoto('setup')});
-$('tsResume').addEventListener('click',()=>{const k=stageList()[0]?.key||'';active=null;tsGoto('review');tsSelect(k,false)});
+function tsLinkUI(){linkControls('tsLink',()=>S.link,()=>{$('tsLinkOn').checked=!!S.link.on;save();draw()})}
+$('tsResume').addEventListener('click',()=>{S.dealerOn=S.type==='dealer';tsGoto('review')});
 document.querySelectorAll('[data-step-go]').forEach(b=>b.addEventListener('click',()=>tsGoto(b.dataset.stepGo)));
 $('tsGo').addEventListener('click',()=>{
   if(!S.show.trim()&&!S.logo){$('tsSetupMsg').textContent='Add the show name or upload its logo first.';$('show').focus();return}
+  if(S.type==='dealer'&&!S.dealer.trim()&&!S.dealerLogo){$('tsSetupMsg').textContent='Add the dealer name or logo first.';$('dealer').focus();return}
   if(!stageList().length){$('tsSetupMsg').textContent='Turn on at least one story.';return}
-  $('tsSetupMsg').textContent='';const k=stageList()[0].key;active=null;tsGoto('review');tsSelect(k,false);
+  $('tsSetupMsg').textContent='';tsGoto('review');
 });
-$('tsPrev').addEventListener('click',()=>{const list=stageList(),i=list.findIndex(s=>s.key===active);if(i<=0){tsGoto('setup');return}tsSelect(list[i-1].key)});
-$('tsNext').addEventListener('click',()=>{const list=stageList(),i=list.findIndex(s=>s.key===active);if(i>=list.length-1){S.frozen=S.frozen||{};S.frozen[active]=styleSnapshot();save();buildTabs();exportStages(list);return}tsSelect(list[i+1].key)});
+$('tsLinkOn').addEventListener('change',e=>{S.link.on=e.target.checked;tsLinkUI();save();renderGrid()});
 $('exportAll').addEventListener('click',()=>exportStages(stageList()));
-$('exportOne').addEventListener('click',()=>exportStages(stageList().filter(s=>s.key===active)));
 
 /* ================= PR Hit Stories ================= */
 const PR_DEFAULT={pub:'Ink World',logo:null,logoName:'',panel:true,featOn:true,quoteOn:true,
