@@ -292,14 +292,15 @@ $('dealerLogoClear').addEventListener('click',()=>{S.dealerLogo=null;S.dealerLog
 function activeStage(){return stageList().find(s=>s.key===active)}
 function syncStoryEdit(){
   const st=activeStage();const box=$('storyEdit');box.hidden=!st;if(!st)return;
-  const h=$('seHead'),b=$('seBody');
+  const h=$('seHead'),b=$('seBody');$('seTitle').textContent=st.label;$('seProd').checked=!!st.st.product;
   if(document.activeElement!==h)h.value=st.st.head;
   if(document.activeElement!==b)b.value=st.st.body;
-  const notes=[];if(st.def.id==='mid')notes.push('Applies to every middle day. {n} is the day number.');if(st.def.id==='countdown')notes.push('{days} is the number of days out.');
+  const notes=[];if(st.def.id==='mid')notes.push('Applies to every middle day. {n} is the day number.');if(st.def.id==='thanks')notes.push('{show} is the show name.');if(st.def.id==='countdown')notes.push('{days} is the number of days out.');
   if(/\{pitch\}/.test(st.st.body))notes.push('{pitch} pulls in the pitch line from Product focus.');$('seNote').textContent=notes.join(' ');
 }
 function seInput(field){const st=activeStage();if(!st)return;st.st[field]=$(field==='head'?'seHead':'seBody').value;
   const mirror=$(`st-${st.def.id}-${field}`);if(mirror)mirror.value=st.st[field];changed()}
+$('seProd').addEventListener('change',()=>{const st=activeStage();if(!st)return;st.st.product=$('seProd').checked;changed()});
 $('seHead').addEventListener('input',()=>seInput('head'));$('seBody').addEventListener('input',()=>seInput('body'));
 const dO=$('daysOut');dO.value=S.daysOut;dO.addEventListener('input',()=>{S.daysOut=Math.max(1,parseInt(dO.value)||1);changed(true)});
 
@@ -335,19 +336,11 @@ function buildStages(){
   const box=$('stages');box.innerHTML='';
   STAGE_DEFS.forEach(def=>{
     const st=S.stages[def.id];
-    const d=document.createElement('div');d.className='stage'+(st.on?'':' off');
-    d.innerHTML=`<div class="hd"><label><input type="checkbox" id="st-${def.id}-on"> ${def.name}</label><span class="when">${def.when}</span></div>
-      <input type="text" id="st-${def.id}-head" aria-label="${def.name} headline" placeholder="Headline">
-      <input type="text" id="st-${def.id}-body" aria-label="${def.name} body line" placeholder="Body line (optional)">
-      <label class="mini"><input type="checkbox" id="st-${def.id}-prod"> Show product block</label>
-      ${def.id==='mid'?'<p class="hint">Repeats for every day between Day 1 and the last day.</p>':''}`;
-    const on=d.querySelector(`#st-${def.id}-on`),h=d.querySelector(`#st-${def.id}-head`),b=d.querySelector(`#st-${def.id}-body`),p=d.querySelector(`#st-${def.id}-prod`);
-    on.checked=st.on;h.value=st.head;b.value=st.body;p.checked=st.product;
-    on.addEventListener('change',()=>{st.on=on.checked;d.classList.toggle('off',!st.on);changed(true)});
-    h.addEventListener('input',()=>{st.head=h.value;changed()});
-    b.addEventListener('input',()=>{st.body=b.value;changed()});
-    p.addEventListener('change',()=>{st.product=p.checked;changed()});
-    box.appendChild(d);
+    const l=document.createElement('label');
+    l.innerHTML=`<input type="checkbox" id="st-${def.id}-on"> ${def.id==='mid'?'Middle days':def.name}<span class="when">${def.when}</span>`;
+    const on=l.querySelector('input');on.checked=st.on;
+    on.addEventListener('change',()=>{st.on=on.checked;changed(true);tsIntroList()});
+    box.appendChild(l);
   });
 }
 buildStages();
@@ -383,10 +376,12 @@ $('fontClear').addEventListener('click',()=>{bcIdb.del('fonts');$('fontStatus').
 function buildTabs(){
   const list=stageList();const t=$('tabs');t.innerHTML='';
   if(!list.find(s=>s.key===active))active=list[0]?.key||'';
-  list.forEach(s=>{const b=document.createElement('button');b.type='button';b.className='tab';b.role='tab';b.textContent=s.label;b.setAttribute('aria-selected',String(s.key===active));
+  list.forEach((s,i)=>{const b=document.createElement('button');b.type='button';b.className='tab';b.role='tab';
+    b.innerHTML=`<span></span><span class="n">${i+1}/${list.length}</span>`;b.firstChild.textContent=s.label;b.setAttribute('aria-selected',String(s.key===active));
     b.addEventListener('click',()=>{active=s.key;buildTabs();syncStoryEdit();draw()});t.appendChild(b)});
-  const rs=RATIOS.filter(r=>S.ratios[r.id]).length;
+  $('tsCount').textContent=list.length?`${list.length} stories`:'';
   $('pkgCount').textContent=`Package: ${list.length} stor${list.length===1?'y':'ies'}, one 1080 × 1920 PNG each`;
+  tsNav();
 }
 function draw(){
   const pv=$('previews');pv.innerHTML='';
@@ -418,7 +413,7 @@ async function exportStages(list){
   const rs=RATIOS.filter(r=>S.ratios[r.id]);
   if(!downloads){$('status').textContent='Downloads are not available in this browser.';return}
   if(!list.length||!rs.length){$('status').textContent='Nothing to export. Turn on a stage and a size.';return}
-  const btns=[$('exportOne'),$('exportAll')];btns.forEach(b=>b.disabled=true);
+  const btns=[$('exportOne'),$('exportAll'),$('tsNext')];btns.forEach(b=>b.disabled=true);
   try{
     $('status').textContent='Rendering…';
     const zip=new JSZip();const base=slug(S.show);
@@ -436,9 +431,34 @@ async function exportStages(list){
 }
 /* views */
 try{document.querySelector('.t-trade').style.backgroundImage=`url(${ASSETS.vfbg})`}catch(e){}
-function show(view){['home','tradeshow','pr','holiday','words','blog'].forEach(v=>$(v).hidden=v!==view);window.scrollTo(0,0);if(view==='tradeshow')draw();if(view==='pr')prDraw();if(view==='holiday')holDraw();if(view==='words')iywDraw();if(view==='blog')bcDraw()}
+function show(view){['home','stories','tradeshow','pr','holiday','words','blog'].forEach(v=>$(v).hidden=v!==view);window.scrollTo(0,0);if(view==='tradeshow'){tsGoto('intro')}if(view==='pr')prDraw();if(view==='holiday')holDraw();if(view==='words')iywDraw();if(view==='blog')bcDraw()}
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{show(b.dataset.go);try{history.replaceState(null,'','#'+b.dataset.go)}catch(e){}}));
-[$('backHome'),...document.querySelectorAll('[data-home]')].forEach(b=>b.addEventListener('click',()=>{show('home');try{history.replaceState(null,'','#home')}catch(e){}}));
+document.querySelectorAll('[data-back]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.back;show(v);try{history.replaceState(null,'','#'+v)}catch(e){}}));
+/* Tradeshow journey: start → show details → review each story → finish and download */
+let tsStep='intro';
+function tsIntroList(){const ul=$('tsIntroList');ul.innerHTML='';stageList().forEach(s=>{const li=document.createElement('li');li.textContent=s.label;ul.appendChild(li)})}
+function tsGoto(step){
+  tsStep=step;['intro','setup','review'].forEach(k=>{$('ts'+k[0].toUpperCase()+k.slice(1)).hidden=k!==step});
+  const order=['intro','setup','review'];document.querySelectorAll('#tsJourney li').forEach(li=>{const i=order.indexOf(li.dataset.step),c=order.indexOf(step);li.classList.toggle('on',i===c);li.classList.toggle('done',i<c)});
+  if(step==='intro'){tsIntroList();const has=!S.example;$('tsResume').hidden=!has;$('tsResumeNote').textContent=has?`Picks up ${S.show.trim()||'your last package'} where you left off.`:''}
+  if(step==='review'){buildTabs();syncStoryEdit();draw()}
+  window.scrollTo(0,0);
+}
+function tsNav(){
+  const list=stageList(),i=list.findIndex(s=>s.key===active),last=i===list.length-1;
+  $('tsPrev').textContent=i<=0?'← Show details':'← Back';
+  $('tsNext').textContent=last?'Finish and download':'Next →';
+}
+$('tsStart').addEventListener('click',()=>tsGoto('setup'));
+$('tsResume').addEventListener('click',()=>{active=stageList()[0]?.key||'';tsGoto('review')});
+document.querySelectorAll('[data-step-go]').forEach(b=>b.addEventListener('click',()=>tsGoto(b.dataset.stepGo)));
+$('tsGo').addEventListener('click',()=>{
+  if(!S.show.trim()&&!S.logo){$('tsSetupMsg').textContent='Add the show name or upload its logo first.';$('show').focus();return}
+  if(!stageList().length){$('tsSetupMsg').textContent='Turn on at least one story.';return}
+  $('tsSetupMsg').textContent='';active=stageList()[0].key;tsGoto('review');
+});
+$('tsPrev').addEventListener('click',()=>{const list=stageList(),i=list.findIndex(s=>s.key===active);if(i<=0){tsGoto('setup');return}active=list[i-1].key;buildTabs();syncStoryEdit();draw();window.scrollTo(0,0)});
+$('tsNext').addEventListener('click',()=>{const list=stageList(),i=list.findIndex(s=>s.key===active);if(i>=list.length-1){exportStages(list);return}active=list[i+1].key;buildTabs();syncStoryEdit();draw();window.scrollTo(0,0)});
 $('exportAll').addEventListener('click',()=>exportStages(stageList()));
 $('exportOne').addEventListener('click',()=>exportStages(stageList().filter(s=>s.key===active)));
 
@@ -908,6 +928,26 @@ async function bcLoadStored(){
   bcBuildSlides();bcSync();
 }
 
+/* Collapsible rail sections: click a section title to fold it; the state is remembered in this browser */
+(function(){
+  let saved={};try{saved=JSON.parse(localStorage.getItem('sg-collapsed')||'{}')}catch(e){}
+  const keep=()=>{try{localStorage.setItem('sg-collapsed',JSON.stringify(saved))}catch(e){}};
+  document.querySelectorAll('.wrap').forEach(w=>{
+    const secs=[...w.querySelectorAll('.rail > .sec')];if(!secs.length)return;
+    secs.forEach((sec,i)=>{const h=sec.querySelector(':scope > h2');if(!h)return;const key=w.id+':'+i;
+      if(saved[key]===undefined?i>0&&w.id!=='tradeshow':saved[key])sec.classList.add('collapsed');
+      h.setAttribute('role','button');h.tabIndex=0;h.setAttribute('aria-expanded',String(!sec.classList.contains('collapsed')));
+      const tog=e=>{if(e.target.closest('button,input,select,a'))return;if(e.type==='keydown'&&e.key!=='Enter'&&e.key!==' ')return;e.preventDefault();
+        sec.classList.toggle('collapsed');saved[key]=sec.classList.contains('collapsed');h.setAttribute('aria-expanded',String(!saved[key]));keep()};
+      h.addEventListener('click',tog);h.addEventListener('keydown',tog)});
+    const rail=w.querySelector('.rail');const tools=document.createElement('div');tools.className='railtools';
+    tools.innerHTML='<button type="button">Expand all</button><button type="button">Collapse all</button>';
+    const [ex,co]=tools.querySelectorAll('button');
+    const setAll=c=>{secs.forEach((sec,i)=>{sec.classList.toggle('collapsed',c);saved[w.id+':'+i]=c;const h=sec.querySelector(':scope > h2');if(h)h.setAttribute('aria-expanded',String(!c))});keep()};
+    ex.addEventListener('click',()=>setAll(false));co.addEventListener('click',()=>setAll(true));rail.prepend(tools);
+  });
+})();
+
 /* boot */
 (async function(){
   const keys=['mark','versiflex','sublijet','splash','vfbg','qmarks'];
@@ -922,7 +962,7 @@ async function bcLoadStored(){
   imgs.sawgrass=await loadImg(ASSETS.sawgrass);prSync();
   if(Hh.img)imgs.holImg=await loadImg(Hh.img);holSync();iywSync();await bcLoadStored();
   try{const fl=await bcIdb.get('fonts');if(fl&&fl.length)await applyFonts(fl)}catch(e){}
-  show(['#tradeshow','#pr','#holiday','#words','#blog'].includes(location.hash)?location.hash.slice(1):'home');
+  show(['#stories','#tradeshow','#pr','#holiday','#words','#blog'].includes(location.hash)?location.hash.slice(1):'home');
   // Only edits made after the page has loaded count as changes worth syncing.
   setTimeout(()=>{window.SG_BOOTED=true},1200);
   // Standalone: save files with a normal browser download.

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Sawgrass Story Builder</title>
+<title>Sawgrass Asset Builder</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
@@ -114,6 +114,58 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
 @media (max-width:640px){.bcrow{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .t-blog{background-image:linear-gradient(90deg,#E04584,#8C84E3)}
 .fontsec{max-width:560px}
+
+.tiles.cats{grid-template-columns:repeat(3,minmax(0,1fr));max-width:900px}
+@media (max-width:700px){.tiles.cats{grid-template-columns:1fr 1fr}}
+.cat .thumb{aspect-ratio:16/10;padding-bottom:0;align-items:center}
+.cat .thumb .tt{font-size:22px}
+.t-fast{background-image:linear-gradient(180deg,#FF7F39,#E04584)}
+.mini-btn{font-size:12px;padding:3px 9px;text-transform:none;letter-spacing:0;font-family:var(--ui)}
+/* collapsible rail sections */
+.rail .sec>h2{cursor:pointer;user-select:none}
+.rail .sec>h2::before{content:'';width:7px;height:7px;border-right:2px solid var(--faint);border-bottom:2px solid var(--faint);transform:rotate(45deg);margin:0 4px 3px 1px;transition:transform .15s;flex:none}
+.rail .sec>h2{justify-content:flex-start}
+.rail .sec>h2>:last-child{margin-left:auto}
+.rail .sec.collapsed>h2::before{transform:rotate(-45deg);margin-bottom:0}
+.rail .sec.collapsed>:not(h2){display:none!important}
+.rail .sec.collapsed{gap:0}
+.railtools{display:flex;gap:8px;justify-content:flex-end}
+.railtools button{font:inherit;font-size:12px;font-weight:600;color:var(--muted);background:none;border:0;cursor:pointer;padding:2px 4px}
+.railtools button:hover{color:var(--fg)}
+/* tradeshow journey */
+.journey{display:flex;gap:6px;list-style:none;margin:0;padding:0;flex-wrap:wrap}
+.journey li{font-size:12px;font-weight:600;color:var(--faint);padding:5px 12px;border-radius:99px;border:1px solid var(--line)}
+.journey li.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.journey li.done{color:var(--fg)}
+.tsstep{grid-column:1/-1;min-width:0}
+.intro{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:28px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:28px;align-items:center}
+@media (max-width:800px){.intro{grid-template-columns:1fr}}
+.intro h2.big{font-size:26px;margin:0 0 8px;text-wrap:balance}
+.intro p{color:var(--muted);margin:0 0 14px;max-width:60ch}
+.stagelist{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0;padding:0}
+.stagelist li{font-size:12px;font-weight:600;padding:4px 10px;border-radius:99px;background:var(--field);border:1px solid var(--line)}
+.introbtns{display:flex;flex-direction:column;gap:10px}
+.btn.lg{font-size:15px;padding:11px 18px}
+.setup{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start}
+@media (max-width:1100px){.setup{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:700px){.setup{grid-template-columns:1fr}}
+.setupgo{grid-column:1/-1;display:flex;gap:10px;justify-content:flex-end;align-items:center;flex-wrap:wrap}
+.stagechecks{display:flex;flex-direction:column;gap:6px}
+.stagechecks label{display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer}
+.stagechecks .when{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint)}
+.stagechecks input{accent-color:var(--accent)}
+.review{display:grid;grid-template-columns:300px minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:980px){.review{grid-template-columns:1fr}}
+.steps{display:flex;flex-direction:column;gap:4px}
+.steps .tab{text-align:left;border-radius:8px;display:flex;justify-content:space-between;gap:8px}
+.steps .tab .n{font-family:var(--mono);font-size:11px;opacity:.7}
+.reviewgrid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+@media (max-width:1180px){.reviewgrid{grid-template-columns:1fr}}
+.editcol{display:flex;flex-direction:column;gap:12px;min-width:0}
+.editcol textarea{width:100%;font:inherit;font-size:14px;color:var(--fg);background:var(--field);border:1px solid var(--line);border-radius:7px;padding:8px 10px;resize:vertical}
+.stepnav{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stepnav .btn{white-space:nowrap}
+.editcol .actions{display:flex;gap:8px;flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -121,15 +173,53 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
   <header class="top">
     <div>
       <div class="stripe" aria-hidden="true"></div>
-      <h1>Sawgrass Story Builder</h1>
-      <p>Pick a format, fill in the details and export on-brand Instagram Stories and carousels.</p>
+      <h1>Sawgrass Asset Builder</h1>
+      <p>Pick what you're making, fill in the details and export on-brand assets.</p>
     </div>
     <div class="sync"><span id="syncLabel">Loading…</span></div>
+  </header>
+  <div class="tiles cats">
+    <button type="button" class="tile cat" data-go="stories">
+      <span class="thumb t-trade"><span class="tt">9:16</span></span>
+      <span class="tmeta"><b>Stories</b><span>Tradeshow packages, PR hits, holiday closures and customer quotes.</span></span>
+      <span class="state ready">4 types</span>
+    </button>
+    <button type="button" class="tile cat" data-go="blog">
+      <span class="thumb t-blog"><span class="tt">4 × 4:5</span></span>
+      <span class="tmeta"><b>Blog Carousels</b><span>One wide photo split across a 4-slide feed carousel.</span></span>
+      <span class="state ready">Ready</span>
+    </button>
+    <button type="button" class="tile cat" disabled>
+      <span class="thumb t-fast"><span class="tt">9:16 + 4:5</span></span>
+      <span class="tmeta"><b>Fast Promos</b><span>Quick single promos in Story and feed sizes.</span></span>
+      <span class="state">Up next</span>
+    </button>
+  </div>
+  <section class="sec fontsec">
+    <h2>Fonts</h2>
+    <p class="hint" id="fontStatus">Rendering in Helvetica, the approved fallback. Load the Benton Sans files to match Canva.</p>
+    <div class="upl">
+      <input id="fontFile" type="file" accept=".otf,.ttf,.woff,.woff2" multiple hidden>
+      <button class="btn" type="button" id="fontBtn">Load Benton Sans</button>
+      <button class="btn" type="button" id="fontClear" hidden>Forget fonts</button>
+    </div>
+    <p class="hint">Pick the Book, Medium and Bold files together (Light too if you want it). Then set each element's weight next to its size slider. This browser remembers them, so you only do this once per computer. They are never uploaded to GitHub or Firebase.</p>
+  </section>
+</section>
+</section>
+
+<section id="stories" class="home" hidden>
+  <header class="top">
+    <div>
+      <button type="button" class="btn back" data-back="home">← Asset Builder</button>
+      <h1>Stories</h1>
+      <p>9:16 Instagram Stories, 1080 × 1920.</p>
+    </div>
   </header>
   <div class="tiles">
     <button type="button" class="tile" data-go="tradeshow">
       <span class="thumb t-trade"><span class="tt">Booth C2591</span></span>
-      <span class="tmeta"><b>Tradeshow Stories</b><span>Announcement through thank you, one story per stage.</span></span>
+      <span class="tmeta"><b>Tradeshow Package</b><span>A guided build from announcement to thank you.</span></span>
       <span class="state ready">Ready</span>
     </button>
     <button type="button" class="tile" data-go="pr">
@@ -147,38 +237,49 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
       <span class="tmeta"><b>In Your Words</b><span>Customer quotes and reviews, one story each.</span></span>
       <span class="state ready">Ready</span>
     </button>
-    <button type="button" class="tile" data-go="blog">
-      <span class="thumb t-blog"><span class="tt">4 × 4:5</span></span>
-      <span class="tmeta"><b>Blog Carousel</b><span>One wide photo split across a 4-slide feed carousel.</span></span>
-      <span class="state ready">Ready</span>
-    </button>
   </div>
-  <section class="sec fontsec">
-    <h2>Fonts</h2>
-    <p class="hint" id="fontStatus">Rendering in Helvetica, the approved fallback. Load the Benton Sans files to match Canva.</p>
-    <div class="upl">
-      <input id="fontFile" type="file" accept=".otf,.ttf,.woff,.woff2" multiple hidden>
-      <button class="btn" type="button" id="fontBtn">Load Benton Sans</button>
-      <button class="btn" type="button" id="fontClear" hidden>Forget fonts</button>
-    </div>
-    <p class="hint">Pick the Book, Medium and Bold files together (Light too if you want it). Then set each element's weight next to its size slider. This browser remembers them, so you only do this once per computer. They are never uploaded to GitHub or Firebase.</p>
-  </section>
 </section>
 
 <div class="wrap" id="tradeshow" hidden>
   <header class="top">
     <div>
-      <button type="button" class="btn back" id="backHome">← All story types</button>
-      <h1>Tradeshow Stories</h1>
-      <p>Fill in the show once. Every stage from announcement to thank you renders as a 9:16 story, ready to export as one package.</p>
+      <button type="button" class="btn back" data-back="stories">← Stories</button>
+      <h1>Tradeshow Package</h1>
+      <p id="tsLede">Every story from announcement to thank you, built from one set of show details.</p>
     </div>
-    <p class="legend">1080 × 1920 PNG · Brand Guide 2026</p>
+    <ol class="journey" id="tsJourney" aria-label="Progress">
+      <li data-step="intro">Start</li><li data-step="setup">Show details</li><li data-step="review">Review stories</li>
+    </ol>
   </header>
 
-  <aside class="rail">
+  <!-- Step 1: start -->
+  <section class="tsstep" id="tsIntro">
+    <div class="intro">
+      <div>
+        <h2 class="big">Build a tradeshow package</h2>
+        <p>Give the show details once. You'll then go through each story in order, change any line you like, and download the whole set at the end.</p>
+        <ul class="stagelist" id="tsIntroList"></ul>
+      </div>
+      <div class="introbtns">
+        <button class="btn primary lg" type="button" id="tsStart">Start building package</button>
+        <button class="btn lg" type="button" id="tsResume" hidden>Continue editing</button>
+        <p class="hint" id="tsResumeNote"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Step 2: show details -->
+  <section class="tsstep setup" id="tsSetup" hidden>
     <section class="sec">
-      <h2>Show details <span class="chip" id="exampleChip">Example details</span></h2>
+      <h2>The show <span class="chip" id="exampleChip">Example details</span></h2>
       <label class="f">Show name<input id="show" type="text" autocomplete="off"></label>
+      <div class="upl">
+        <input id="logoFile" type="file" accept="image/*" hidden>
+        <button class="btn" type="button" id="logoBtn">Upload show logo</button>
+        <button class="btn" type="button" id="logoClear" hidden>Remove</button>
+        <span class="hint" id="logoName">No logo yet. The show name stands in for it.</span>
+      </div>
+      <label class="mini"><input type="checkbox" id="panelOn"> Put the show logo on a white panel</label>
       <div class="row">
         <label class="f">Location<input id="city" type="text" autocomplete="off"></label>
         <label class="f">Booth<input id="booth" type="text" autocomplete="off"></label>
@@ -188,19 +289,11 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
         <label class="f">Last day<input id="end" type="date"></label>
       </div>
       <p class="hint" id="datePreview"></p>
-      <div class="upl">
-        <input id="logoFile" type="file" accept="image/*" hidden>
-        <button class="btn" type="button" id="logoBtn">Upload show logo</button>
-        <button class="btn" type="button" id="logoClear" hidden>Remove</button>
-        <span class="hint" id="logoName">No logo yet. The show name stands in for it.</span>
-      </div>
-      <label class="mini"><input type="checkbox" id="panelOn"> Put the show logo on a white panel</label>
-      <p class="hint">Turn the panel off for a white or reverse show logo that reads on the gradient by itself.</p>
     </section>
 
     <section class="sec">
       <h2>Dealer</h2>
-      <label class="mini"><input type="checkbox" id="dealerOn"> Show a dealer with the show</label>
+      <label class="mini"><input type="checkbox" id="dealerOn"> A dealer is hosting us at this show</label>
       <div id="dealerFields" style="display:flex;flex-direction:column;gap:10px" hidden>
         <label class="f">Dealer name<input id="dealer" type="text" autocomplete="off" placeholder="Magic Touch"></label>
         <label class="f">Lead-in<input id="dealerLead" type="text" autocomplete="off"></label>
@@ -211,76 +304,92 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
           <span class="hint" id="dealerLogoName"></span>
         </div>
         <label class="mini"><input type="checkbox" id="dealerPanel"> Put the dealer logo on a white panel</label>
-        <p class="hint">The dealer sits under the location and date. Use the booth field for the dealer's booth.</p>
       </div>
     </section>
 
     <section class="sec">
-      <h2>Product focus</h2>
+      <h2>Product</h2>
       <select id="product" aria-label="Product focus"></select>
       <label class="f">Lead-in<input id="lead" type="text" autocomplete="off"></label>
-      <label class="f">Pitch line <span class="tok">used as {pitch}</span><input id="pitch" type="text" autocomplete="off"></label>
+      <label class="f">Pitch line<input id="pitch" type="text" autocomplete="off"></label>
       <p class="warn" id="productWarn" hidden></p>
     </section>
 
     <section class="sec">
-      <h2>Background</h2>
+      <h2>Look</h2>
       <div class="swatches" id="swatches" role="group" aria-label="Background gradient"></div>
       <p class="swname" id="swName"></p>
+      <p class="warn" id="contrastWarn" hidden>White type gets thin on yellow. Check each story before posting, or pick another gradient.</p>
       <label class="mini"><input type="checkbox" id="archOn"> Arch the headline</label>
-      <p class="warn" id="contrastWarn" hidden>White type gets thin on yellow. Check the 9:16 before posting, or pick another gradient.</p>
       <label class="mini"><input type="checkbox" id="splashOn"> Ink splash behind the show logo</label>
       <div class="upl">
         <input id="splashFile" type="file" accept="image/png,image/webp" hidden>
         <button class="btn" type="button" id="splashBtn">Replace splash</button>
         <button class="btn" type="button" id="splashReset" hidden>Use default</button>
       </div>
-      <p class="hint">The default splash comes from the brand guide at low resolution. Upload the full-size transparent PNG once and the builder keeps it.</p>
-    </section>
-
-
-    <section class="sec">
-      <h2>Size and weight <button class="btn" type="button" id="resetSizes" style="font-size:12px;padding:3px 9px;text-transform:none;letter-spacing:0;font-family:var(--ui)">Reset</button></h2>
-      <div id="sliders" class="sliders"></div>
-      <p class="hint">Sizes apply to every stage and format. If the stack gets too tall for a format, that format scales down as a whole to fit.</p>
     </section>
 
     <section class="sec">
-      <h2>Cadence <span class="tok">{show} {city} {booth} {days} {n} {pitch}</span></h2>
-      <div class="row3">
-        <label class="f">Days out<input id="daysOut" type="number" min="1" max="60"></label>
-        <span></span><span></span>
-      </div>
-      <div id="stages" style="display:flex;flex-direction:column;gap:8px"></div>
-      <button class="btn" type="button" id="resetCopy">Reset all copy to defaults</button>
+      <h2>Stories in the package</h2>
+      <div id="stages" class="stagechecks"></div>
+      <label class="f" style="max-width:140px">Countdown days out<input id="daysOut" type="number" min="1" max="60"></label>
+      <p class="hint">Day 1, the middle days and the last day come from the show dates.</p>
     </section>
 
-  </aside>
-
-  <main class="main">
-    <div class="bar">
-      <div class="tabs" id="tabs" role="tablist" aria-label="Preview stage"></div>
-      <div class="actions">
-        <span class="status" id="status" role="status"></span>
-        <button class="btn" type="button" id="exportOne">Download this stage</button>
-        <button class="btn primary" type="button" id="exportAll">Download package</button>
-      </div>
+    <div class="setupgo">
+      <span class="hint" id="tsSetupMsg"></span>
+      <button class="btn lg" type="button" data-step-go="intro">Back</button>
+      <button class="btn primary lg" type="button" id="tsGo">Go →</button>
     </div>
-    <section class="sec" id="storyEdit">
-      <h2>This story</h2>
-      <label class="f">Headline<input id="seHead" type="text" autocomplete="off"></label>
-      <label class="f">Body line<input id="seBody" type="text" autocomplete="off" placeholder="Optional"></label>
-      <p class="hint" id="seNote"></p>
-    </section>
-    <div class="stagewrap"><div class="previews" id="previews"></div></div>
-    <p class="legend" id="pkgCount"></p>
-  </main>
+  </section>
+
+  <!-- Step 3: review each story -->
+  <section class="tsstep review" id="tsReview" hidden>
+    <aside class="rail">
+      <section class="sec">
+        <h2>Stories <span class="tok" id="tsCount"></span></h2>
+        <div class="steps" id="tabs" role="tablist" aria-label="Stories"></div>
+        <button class="btn" type="button" data-step-go="setup">Edit show details</button>
+      </section>
+      <section class="sec">
+        <h2>Size and weight <button class="btn mini-btn" type="button" id="resetSizes">Reset</button></h2>
+        <div id="sliders" class="sliders"></div>
+        <p class="hint">Applies to every story in the package.</p>
+      </section>
+    </aside>
+
+    <main class="main">
+      <div class="reviewgrid">
+        <div class="stagewrap"><div class="previews" id="previews"></div></div>
+        <div class="editcol">
+          <section class="sec" id="storyEdit">
+            <h2 id="seTitle">This story</h2>
+            <label class="f">Headline<input id="seHead" type="text" autocomplete="off"></label>
+            <label class="f">Body line<textarea id="seBody" rows="3" placeholder="Optional"></textarea></label>
+            <label class="mini"><input type="checkbox" id="seProd"> Show the product block</label>
+            <p class="hint" id="seNote"></p>
+            <button class="btn" type="button" id="resetCopy">Reset all copy to defaults</button>
+          </section>
+          <div class="stepnav">
+            <button class="btn lg" type="button" id="tsPrev">← Back</button>
+            <button class="btn primary lg" type="button" id="tsNext">Next →</button>
+          </div>
+          <div class="actions">
+            <button class="btn" type="button" id="exportOne">Download this story</button>
+            <button class="btn" type="button" id="exportAll">Download package</button>
+          </div>
+          <p class="status" id="status" role="status"></p>
+          <p class="legend" id="pkgCount"></p>
+        </div>
+      </div>
+    </main>
+  </section>
 </div>
 
 <div class="wrap" id="pr" hidden>
   <header class="top">
     <div>
-      <button type="button" class="btn back" data-home>← All story types</button>
+      <button type="button" class="btn back" data-back="stories">← Stories</button>
       <h1>PR Hit Stories</h1>
       <p>A feature story and a quote story for each press hit. Add the Read More link sticker on Instagram after export.</p>
     </div>
@@ -351,7 +460,7 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
 <div class="wrap" id="holiday" hidden>
   <header class="top">
     <div>
-      <button type="button" class="btn back" data-home>← All story types</button>
+      <button type="button" class="btn back" data-back="stories">← Stories</button>
       <h1>Holiday Closure Stories</h1>
       <p>Pick a layout, set the dates and the closure copy writes itself. Every line stays editable.</p>
     </div>
@@ -429,7 +538,7 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
 <div class="wrap" id="words" hidden>
   <header class="top">
     <div>
-      <button type="button" class="btn back" data-home>← All story types</button>
+      <button type="button" class="btn back" data-back="stories">← Stories</button>
       <h1>In Your Words</h1>
       <p>Customer quotes as stories. Add as many as you like and export them together.</p>
     </div>
@@ -474,7 +583,7 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
 <div class="wrap" id="blog" hidden>
   <header class="top">
     <div>
-      <button type="button" class="btn back" data-home>← All story types</button>
+      <button type="button" class="btn back" data-back="home">← Asset Builder</button>
       <h1>Blog Carousel</h1>
       <p>Upload one wide photo. It splits across four 4:5 slides that read as one continuous picture when you swipe.</p>
     </div>
