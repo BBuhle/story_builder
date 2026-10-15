@@ -65,7 +65,8 @@ input:focus-visible,select:focus-visible,button:focus-visible,.sw:focus-visible{
 .mini input{accent-color:var(--accent)}
 .tok{font-family:var(--mono);font-size:11px;color:var(--faint)}
 .sliders{display:flex;flex-direction:column;gap:8px}
-.sl{display:grid;grid-template-columns:110px minmax(0,1fr) 44px;align-items:center;gap:10px;font-size:13px;font-weight:600;color:var(--muted)}
+.sl{display:grid;grid-template-columns:96px minmax(0,1fr) 40px 88px;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--muted)}
+.wsel{font:inherit;font-size:12px;font-weight:600;color:var(--fg);background:var(--field);border:1px solid var(--line);border-radius:6px;padding:4px 6px;min-width:0}
 .sl input{width:100%;accent-color:var(--accent);margin:0}
 .sl output{font-family:var(--mono);font-size:11px;color:var(--faint);text-align:right;font-variant-numeric:tabular-nums}
 .main{display:flex;flex-direction:column;gap:14px;min-width:0;position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px)}
@@ -160,7 +161,7 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
       <button class="btn" type="button" id="fontBtn">Load Benton Sans</button>
       <button class="btn" type="button" id="fontClear" hidden>Forget fonts</button>
     </div>
-    <p class="hint">Pick the Book, Medium and Bold files together. This browser remembers them, so you only do this once per computer. They are never uploaded to GitHub or Firebase.</p>
+    <p class="hint">Pick the Book, Medium and Bold files together (Light too if you want it). Then set each element's weight next to its size slider. This browser remembers them, so you only do this once per computer. They are never uploaded to GitHub or Firebase.</p>
   </section>
 </section>
 
@@ -239,7 +240,7 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
 
 
     <section class="sec">
-      <h2>Element sizes <button class="btn" type="button" id="resetSizes" style="font-size:12px;padding:3px 9px;text-transform:none;letter-spacing:0;font-family:var(--ui)">Reset</button></h2>
+      <h2>Size and weight <button class="btn" type="button" id="resetSizes" style="font-size:12px;padding:3px 9px;text-transform:none;letter-spacing:0;font-family:var(--ui)">Reset</button></h2>
       <div id="sliders" class="sliders"></div>
       <p class="hint">Sizes apply to every stage and format. If the stack gets too tall for a format, that format scales down as a whole to fit.</p>
     </section>
@@ -329,7 +330,7 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
     </section>
 
     <section class="sec">
-      <h2>Element sizes <button class="btn" type="button" id="prResetSizes" style="font-size:12px;padding:3px 9px;text-transform:none;letter-spacing:0;font-family:var(--ui)">Reset</button></h2>
+      <h2>Size and weight <button class="btn" type="button" id="prResetSizes" style="font-size:12px;padding:3px 9px;text-transform:none;letter-spacing:0;font-family:var(--ui)">Reset</button></h2>
       <div id="prSliders" class="sliders"></div>
       <p class="hint">Long headlines and quotes shrink on their own to stay clear of the divider.</p>
     </section>
@@ -411,7 +412,7 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
     </section>
 
     <section class="sec">
-      <h2>Element sizes <button class="btn" type="button" id="holResetSizes" style="font-size:12px;padding:3px 9px;text-transform:none;letter-spacing:0;font-family:var(--ui)">Reset</button></h2>
+      <h2>Size and weight <button class="btn" type="button" id="holResetSizes" style="font-size:12px;padding:3px 9px;text-transform:none;letter-spacing:0;font-family:var(--ui)">Reset</button></h2>
       <div id="holSliders" class="sliders"></div>
     </section>
   </aside>
@@ -452,7 +453,7 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
     </section>
 
     <section class="sec">
-      <h2>Element sizes <button class="btn" type="button" id="iywResetSizes" style="font-size:12px;padding:3px 9px;text-transform:none;letter-spacing:0;font-family:var(--ui)">Reset</button></h2>
+      <h2>Size and weight <button class="btn" type="button" id="iywResetSizes" style="font-size:12px;padding:3px 9px;text-transform:none;letter-spacing:0;font-family:var(--ui)">Reset</button></h2>
       <div id="iywSliders" class="sliders"></div>
       <p class="hint">Long quotes shrink on their own to stay clear of the logo.</p>
     </section>
@@ -517,7 +518,7 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
     </section>
 
     <section class="sec">
-      <h2>Element sizes <button class="btn" type="button" id="bcResetSizes" style="font-size:12px;padding:3px 9px;text-transform:none;letter-spacing:0;font-family:var(--ui)">Reset</button></h2>
+      <h2>Size and weight <button class="btn" type="button" id="bcResetSizes" style="font-size:12px;padding:3px 9px;text-transform:none;letter-spacing:0;font-family:var(--ui)">Reset</button></h2>
       <div id="bcSliders" class="sliders"></div>
     </section>
   </aside>
