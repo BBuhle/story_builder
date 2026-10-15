@@ -420,7 +420,7 @@ async function exportStages(list){
 }
 /* views */
 try{document.querySelector('.t-trade').style.backgroundImage=`url(${ASSETS.vfbg})`}catch(e){}
-function show(view){['home','tradeshow','pr','holiday','words'].forEach(v=>$(v).hidden=v!==view);window.scrollTo(0,0);if(view==='tradeshow')draw();if(view==='pr')prDraw();if(view==='holiday')holDraw();if(view==='words')iywDraw()}
+function show(view){['home','tradeshow','pr','holiday','words','blog'].forEach(v=>$(v).hidden=v!==view);window.scrollTo(0,0);if(view==='tradeshow')draw();if(view==='pr')prDraw();if(view==='holiday')holDraw();if(view==='words')iywDraw();if(view==='blog')bcDraw()}
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{show(b.dataset.go);try{history.replaceState(null,'','#'+b.dataset.go)}catch(e){}}));
 [$('backHome'),...document.querySelectorAll('[data-home]')].forEach(b=>b.addEventListener('click',()=>{show('home');try{history.replaceState(null,'','#home')}catch(e){}}));
 $('exportAll').addEventListener('click',()=>exportStages(stageList()));
@@ -750,6 +750,148 @@ $('iywExport').addEventListener('click',async()=>{
   finally{btn.disabled=false}
 });
 
+/* ================= Blog Carousel (4 × 4:5 from one 16:5 photo) ================= */
+const BC_SLIDE_DEFAULTS=[
+  {head:'Plan Now.\nThank Yourself\nIn December.',body:'',pos:'top',strength:20},
+  {head:'Set Your Cutoff\nBefore Your\nCustomers Do',body:'No published cutoff means the last customer to call sets it for you.',pos:'top',strength:70},
+  {head:'Count Back From\nDecember 25',body:'',pos:'top',strength:92},
+  {head:'Read All About It\nAnd More\nOn The Blog',body:'',pos:'center',strength:92},
+];
+const BC_DEFAULT={grad:'pk',dir:'h',fade:40,zoom:100,x:50,y:50,mark:true,
+  slides:BC_SLIDE_DEFAULTS.map(s=>Object.assign({},s)),scale:{mark:100,head:100,body:100,gfx:100}};
+S.bc=Object.assign(structuredClone(BC_DEFAULT),S.bc||{});S.bc.scale=Object.assign({},BC_DEFAULT.scale,S.bc.scale||{});
+const B=S.bc;while(B.slides.length<4)B.slides.push(Object.assign({},BC_SLIDE_DEFAULTS[B.slides.length]));
+
+/* The wide photo and slide graphics are kept in this browser's IndexedDB at full resolution
+   (too big for cloud sync without losing quality). */
+const bcIdb=(()=>{let dbp=null;const open=()=>dbp||(dbp=new Promise((res,rej)=>{try{const r=indexedDB.open('sg-builder',1);r.onupgradeneeded=()=>r.result.createObjectStore('files');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}}));
+  const tx=async(mode,fn)=>{const db=await open();return new Promise((res,rej)=>{const t=db.transaction('files',mode);const st=t.objectStore('files');const q=fn(st);t.oncomplete=()=>res(q&&q.result);t.onerror=()=>rej(t.error)})};
+  return{get:k=>tx('readonly',s=>s.get(k)).catch(()=>null),set:(k,v)=>tx('readwrite',s=>s.put(v,k)).catch(()=>{}),del:k=>tx('readwrite',s=>s.delete(k)).catch(()=>{})}})();
+const bcImgs={photo:null,gfx:[null,null,null,null]};
+
+const PW=4320,PH=1350,SW=1080;
+let bcPano=null;
+function bcRenderPano(guide){
+  const c=bcPano||(bcPano=document.createElement('canvas'));c.width=PW;c.height=PH;
+  const x=c.getContext('2d');x.imageSmoothingQuality='high';
+  // photo, cover-fit with zoom and position
+  if(bcImgs.photo){
+    const im=bcImgs.photo,base=Math.max(PW/im.width,PH/im.height),sc=base*B.zoom/100,w=im.width*sc,h=im.height*sc;
+    x.drawImage(im,(PW-w)*B.x/100,(PH-h)*B.y/100,w,h);
+  }else{
+    const g=x.createLinearGradient(0,0,PW,PH);g.addColorStop(0,'#DAD8D9');g.addColorStop(1,'#888B95');x.fillStyle=g;x.fillRect(0,0,PW,PH);
+  }
+  // gradient overlay with a per-slide strength ramp (stops at slide centers) and an optional fade toward the bottom
+  const o=document.createElement('canvas');o.width=PW;o.height=PH;const ox=o.getContext('2d');
+  const gr=GRADS.find(g=>g.id===B.grad)||GRADS[0];
+  if(gr.img&&imgs[gr.img]){
+    if(B.dir==='h'){ox.save();ox.translate(PW,0);ox.rotate(Math.PI/2);ox.drawImage(imgs[gr.img],0,0,PH,PW);ox.restore()}
+    else ox.drawImage(imgs[gr.img],0,0,PW,PH);
+  }else{
+    const lg=B.dir==='h'?ox.createLinearGradient(0,0,PW,0):ox.createLinearGradient(0,0,0,PH);lg.addColorStop(0,gr.a);lg.addColorStop(1,gr.b);ox.fillStyle=lg;ox.fillRect(0,0,PW,PH);
+  }
+  ox.globalCompositeOperation='destination-in';
+  const st=B.slides.map(s=>Math.max(0,Math.min(100,Number(s.strength)||0))/100);
+  const ha=ox.createLinearGradient(0,0,PW,0);ha.addColorStop(0,`rgba(0,0,0,${st[0]})`);
+  st.forEach((v,i)=>ha.addColorStop((i*SW+SW/2)/PW,`rgba(0,0,0,${v})`));ha.addColorStop(1,`rgba(0,0,0,${st[3]})`);
+  ox.fillStyle=ha;ox.fillRect(0,0,PW,PH);
+  if(B.fade>0){const va=ox.createLinearGradient(0,0,0,PH);va.addColorStop(0,'rgba(0,0,0,1)');va.addColorStop(0.42,'rgba(0,0,0,1)');va.addColorStop(1,`rgba(0,0,0,${1-B.fade/100})`);ox.fillStyle=va;ox.fillRect(0,0,PW,PH)}
+  x.drawImage(o,0,0);
+  if(guide&&!bcImgs.photo){x.save();x.setLineDash([24,16]);x.lineWidth=6;x.strokeStyle='rgba(255,255,255,.8)';rr(x,60,PH-260,PW-120,200,40);x.stroke();
+    x.font=F(500,56);x.textAlign='center';x.textBaseline='middle';x.fillStyle='rgba(255,255,255,.95)';x.fillText('Upload a 16:5 photo. It runs across all four slides.',PW/2,PH-160);x.restore()}
+  return c;
+}
+function bcLines(ctx,text,maxW){const out=[];for(const para of String(text||'').split('\n')){const t=para.trim();if(!t){continue}out.push(...wrap(ctx,t,maxW))}return out}
+function bcRenderSlide(canvas,i,pano){
+  canvas.width=SW;canvas.height=PH;const ctx=canvas.getContext('2d');ctx.imageSmoothingQuality='high';
+  ctx.drawImage(pano,i*SW,0,SW,PH,0,0,SW,PH);
+  const s=B.slides[i],sc=k=>(B.scale[k]??100)/100;ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='top';
+  // logomark (template: 142 px wide, 172 px from the top)
+  let markBottom=150;
+  if(B.mark&&imgs.mark){const w=142*sc('mark'),h=w*imgs.mark.height/imgs.mark.width;ctx.drawImage(imgs.mark,SW/2-w/2,172,w,h);markBottom=172+h}
+  // headline (Medium) and body (Book)
+  const big=s.pos==='center'?1.125:1;let hs=75*sc('head')*big,bs=39*sc('body');
+  ctx.font=F(500,hs);let hl=bcLines(ctx,s.head,900);while(hl.some(l=>ctx.measureText(l).width>960)&&hs>30){hs-=2;ctx.font=F(500,hs);hl=bcLines(ctx,s.head,900)}
+  ctx.font=F(400,bs);const bl=bcLines(ctx,s.body,815);
+  const headH=hl.length*hs*1.2,bodyH=bl.length?44+bl.length*bs*1.25:0,block=headH+bodyH;
+  let y=s.pos==='center'?Math.max(markBottom+60,PH*0.45-block/2):markBottom+(B.mark?80:20);
+  ctx.font=F(500,hs);for(const l of hl){ctx.fillText(l,SW/2,y);y+=hs*1.2}
+  if(bl.length){y+=44;ctx.font=F(400,bs);for(const l of bl){ctx.fillText(l,SW/2,y);y+=bs*1.25}}
+  // optional graphic (a calendar, chart or product cut-out) under the text
+  const gf=bcImgs.gfx[i];
+  if(gf){const top=y+60,maxW=900*sc('gfx'),maxH=Math.max(80,(PH-80-top))*Math.min(1,sc('gfx'));const k=Math.min(maxW/gf.width,maxH/gf.height);const w=gf.width*k,h=gf.height*k;ctx.drawImage(gf,SW/2-w/2,top,w,h)}
+}
+function bcDraw(){
+  const pano=bcRenderPano(true);const pv=$('bcPreviews');pv.innerHTML='';
+  for(let i=0;i<4;i++){const fig=document.createElement('figure');const c=document.createElement('canvas');c.setAttribute('aria-label',`Slide ${i+1}`);fig.appendChild(c);
+    const cap=document.createElement('figcaption');cap.textContent=`Slide ${i+1}`;fig.appendChild(cap);pv.appendChild(fig);bcRenderSlide(c,i,pano)}
+}
+function bcSync(){
+  document.querySelectorAll('#bcSwatches .sw').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.id===B.grad)));
+  $('bcSwName').textContent=(GRADS.find(g=>g.id===B.grad)||GRADS[0]).name;
+  $('bcZoomVal').textContent=B.zoom+'%';$('bcXVal').textContent=B.x+'%';$('bcYVal').textContent=B.y+'%';$('bcFadeVal').textContent=B.fade+'%';
+  $('bcImgClear').hidden=!bcImgs.photo;
+  const im=bcImgs.photo;
+  $('bcImgInfo').textContent=!im?'Best at 4320 × 1350 px. Other sizes are cropped to fill.':
+    `${im.width} × ${im.height} px${Math.abs(im.width/im.height-3.2)>0.05?' · not 16:5, cropped to fill':''}${im.width<3200?' · under 3200 px wide, slides may look soft':''}`;
+}
+let bcRaf;function bcChanged(){bcSync();save();cancelAnimationFrame(bcRaf);bcRaf=requestAnimationFrame(bcDraw)}
+function bcBuildSlides(){
+  const box=$('bcSlides');box.innerHTML='';
+  B.slides.forEach((s,i)=>{
+    const d=document.createElement('div');d.className='stage';
+    d.innerHTML=`<div class="hd"><b>Slide ${i+1}</b><span class="when">${i===0?'Cover':i===3?'Call to action':'Middle'}</span></div>
+      <textarea rows="3" aria-label="Slide ${i+1} headline" placeholder="Headline (press Enter for a new line)" style="font:inherit;font-size:13px;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:6px 9px;resize:vertical;min-width:0"></textarea>
+      <input type="text" aria-label="Slide ${i+1} body line" placeholder="Body line (optional)">
+      <div class="row"><label class="f">Text position<select aria-label="Slide ${i+1} text position"><option value="top">Top</option><option value="center">Centered</option></select></label>
+      <label class="f">Overlay <span class="tok"></span><input type="range" min="0" max="100" step="5" aria-label="Slide ${i+1} overlay strength" style="accent-color:var(--accent)"></label></div>
+      <div class="upl"><input type="file" accept="image/png,image/webp,image/svg+xml,image/jpeg" hidden><button class="btn" type="button">Add graphic</button><button class="btn" type="button" hidden>Remove graphic</button></div>`;
+    const ta=d.querySelector('textarea'),bd=d.querySelector('input[type=text]'),pos=d.querySelector('select'),rg=d.querySelector('input[type=range]'),tok=d.querySelector('.tok'),
+      file=d.querySelector('input[type=file]'),[add,rm]=d.querySelectorAll('.upl .btn');
+    ta.value=s.head;bd.value=s.body;pos.value=s.pos;rg.value=s.strength;tok.textContent=s.strength+'%';rm.hidden=!bcImgs.gfx[i];
+    ta.addEventListener('input',()=>{s.head=ta.value;bcChanged()});bd.addEventListener('input',()=>{s.body=bd.value;bcChanged()});
+    pos.addEventListener('change',()=>{s.pos=pos.value;bcChanged()});
+    rg.addEventListener('input',()=>{s.strength=Number(rg.value);tok.textContent=rg.value+'%';bcChanged()});
+    add.addEventListener('click',()=>file.click());
+    file.addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;const url=await readFile(f);bcImgs.gfx[i]=await loadImg(url);bcIdb.set('bcGfx'+i,url);rm.hidden=false;e.target.value='';bcChanged()});
+    rm.addEventListener('click',()=>{bcImgs.gfx[i]=null;bcIdb.del('bcGfx'+i);rm.hidden=true;bcChanged()});
+    box.appendChild(d);
+  });
+}
+function bcBindRange(id,key){const el=$(id);el.value=B[key];el.addEventListener('input',()=>{B[key]=Number(el.value);bcChanged()})}
+bcBindRange('bcZoom','zoom');bcBindRange('bcX','x');bcBindRange('bcY','y');bcBindRange('bcFade','fade');
+$('bcDir').value=B.dir;$('bcDir').addEventListener('change',e=>{B.dir=e.target.value;bcChanged()});
+$('bcMark').checked=!!B.mark;$('bcMark').addEventListener('change',e=>{B.mark=e.target.checked;bcChanged()});
+GRADS.forEach(g=>{const b=document.createElement('button');b.type='button';b.className='sw';b.title=g.name;b.setAttribute('aria-label',g.name);
+  b.style.background=g.img?`center/cover url(${ASSETS.vfbg})`:`linear-gradient(180deg,${g.a},${g.b})`;b.dataset.id=g.id;
+  b.addEventListener('click',()=>{B.grad=g.id;bcChanged()});$('bcSwatches').appendChild(b)});
+const BC_SLIDERS=[['mark','Logomark'],['head','Headlines'],['body','Body lines'],['gfx','Graphics']];
+function bcBuildSliders(){const box=$('bcSliders');box.innerHTML='';BC_SLIDERS.forEach(([k,label])=>{const row=document.createElement('label');row.className='sl';
+  row.innerHTML=`<span>${label}</span><input type="range" id="bc-size-${k}" min="50" max="200" step="5" aria-label="${label} size"><output>${B.scale[k]}%</output>`;
+  const i=row.querySelector('input'),o=row.querySelector('output');i.value=B.scale[k];i.addEventListener('input',()=>{B.scale[k]=Number(i.value);o.textContent=i.value+'%';bcChanged()});box.appendChild(row)})}
+bcBuildSlides();bcBuildSliders();
+$('bcResetSizes').addEventListener('click',()=>{Object.keys(B.scale).forEach(k=>B.scale[k]=100);bcBuildSliders();bcChanged()});
+$('bcResetCopy').addEventListener('click',()=>{B.slides.forEach((s,i)=>{const d=BC_SLIDE_DEFAULTS[i];s.head=d.head;s.body=d.body;s.pos=d.pos});bcBuildSlides();bcChanged()});
+$('bcImgBtn').addEventListener('click',()=>$('bcImgFile').click());
+$('bcImgFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;const url=await readFile(f);bcImgs.photo=await loadImg(url);bcIdb.set('bcPhoto',url);
+  B.zoom=100;B.x=50;B.y=50;['bcZoom','bcX','bcY'].forEach(id=>$(id).value=id==='bcZoom'?100:50);e.target.value='';bcChanged()});
+$('bcImgClear').addEventListener('click',()=>{bcImgs.photo=null;bcIdb.del('bcPhoto');bcChanged()});
+$('bcExport').addEventListener('click',async()=>{
+  const st=$('bcStatus');if(!downloads){st.textContent='Downloads are not available in this browser.';return}
+  const btn=$('bcExport');btn.disabled=true;
+  try{st.textContent='Rendering…';const pano=bcRenderPano(false);const c=document.createElement('canvas');const zip=new JSZip();
+    const base=slug((B.slides[0].head||'blog').split('\n').join(' ')).slice(0,40)||'blog';
+    for(let i=0;i<4;i++){bcRenderSlide(c,i,pano);zip.file(`${base}_carousel/${String(i+1).padStart(2,'0')}_${base}.png`,await toBlob(c))}
+    const name=`${base}_carousel.zip`;await downloads.save({filename:name,data:await zip.generateAsync({type:'blob'})});st.textContent=`Saved ${name}`}
+  catch(err){console.error(err);const code=err&&err.code;st.textContent=code==='declined'?'Download cancelled.':'Export failed. Try again.'}
+  finally{btn.disabled=false}
+});
+async function bcLoadStored(){
+  const p=await bcIdb.get('bcPhoto');if(p)bcImgs.photo=await loadImg(p);
+  for(let i=0;i<4;i++){const g=await bcIdb.get('bcGfx'+i);if(g)bcImgs.gfx[i]=await loadImg(g)}
+  bcBuildSlides();bcSync();
+}
+
 /* boot */
 (async function(){
   const keys=['mark','versiflex','sublijet','splash','vfbg','qmarks'];
@@ -762,8 +904,8 @@ $('iywExport').addEventListener('click',async()=>{
   changed(true);
   if(P.logo)imgs.prLogo=await loadImg(P.logo);
   imgs.sawgrass=await loadImg(ASSETS.sawgrass);prSync();
-  if(Hh.img)imgs.holImg=await loadImg(Hh.img);holSync();iywSync();
-  show(['#tradeshow','#pr','#holiday','#words'].includes(location.hash)?location.hash.slice(1):'home');
+  if(Hh.img)imgs.holImg=await loadImg(Hh.img);holSync();iywSync();await bcLoadStored();
+  show(['#tradeshow','#pr','#holiday','#words','#blog'].includes(location.hash)?location.hash.slice(1):'home');
   // Only edits made after the page has loaded count as changes worth syncing.
   setTimeout(()=>{window.SG_BOOTED=true},1200);
   // Standalone: save files with a normal browser download.

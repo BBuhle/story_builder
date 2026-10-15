@@ -1,6 +1,6 @@
 # Sawgrass Story Builder
 
-Builds on-brand 9:16 Instagram Stories for Sawgrass: Tradeshow, PR Hit, Holiday Closure and In Your Words. Everything renders in the browser and exports as 1080 × 1920 PNGs.
+Builds on-brand Instagram content for Sawgrass: 9:16 Stories (Tradeshow, PR Hit, Holiday Closure, In Your Words) at 1080 × 1920, and the 4-slide Blog Carousel at 1080 × 1350. Everything renders in the browser and exports as PNGs.
 
 ## Files
 
@@ -35,6 +35,7 @@ Without Firebase set up, the builder still works and saves settings in that brow
 - Images are stored as separate documents and compressed to stay under Firestore's 1 MB document limit.
 - When a device opens the site and the cloud has newer settings, the page loads them and reloads once.
 - Anyone who finds the site can change the shared settings. The rules stop them listing or deleting workspaces and cap the size of what they can save, and Firebase's free plan has hard limits, so there is no bill risk.
+- The Blog Carousel's wide photo and slide graphics are kept full-size in that browser only (IndexedDB), not synced, so cloud compression never softens them. Its text and settings do sync.
 - Benton Sans font files are not synced. Load them per session, since the license may not allow storing them in the cloud.
 
 ## Updating

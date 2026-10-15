@@ -83,7 +83,7 @@ figure{margin:0;display:flex;flex-direction:column;gap:6px;align-items:center;mi
 figure canvas{display:block;height:min(74vh,760px);width:auto;max-width:100%;border-radius:4px;box-shadow:0 1px 2px rgb(0 0 0 / .12),0 6px 20px rgb(0 0 0 / .10)}
 @media (max-width:640px){figure canvas{height:auto;width:min(320px,100%)}}
 .home{max-width:1100px;margin:0 auto;padding-block:20px 48px;display:flex;flex-direction:column;gap:22px}
-.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
 @media (max-width:900px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .tile{font:inherit;color:var(--fg);text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:10px;cursor:pointer;position:relative;min-width:0}
 .tile:not(:disabled):hover{border-color:var(--accent)}
@@ -107,6 +107,11 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 .sync{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
 .sync span{font-size:12px;color:var(--muted)}
+.bcrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;min-width:0}
+.bcrow figure{gap:4px}
+.bcrow canvas{width:100%;height:auto;display:block;border-radius:0;box-shadow:none}
+@media (max-width:640px){.bcrow{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.t-blog{background-image:linear-gradient(90deg,#E04584,#8C84E3)}
 </style>
 </head>
 <body>
@@ -115,7 +120,7 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
     <div>
       <div class="stripe" aria-hidden="true"></div>
       <h1>Sawgrass Story Builder</h1>
-      <p>Pick a story type, fill in the details and export a set of 9:16 Instagram Stories on brand.</p>
+      <p>Pick a format, fill in the details and export on-brand Instagram Stories and carousels.</p>
     </div>
     <div class="sync"><span id="syncLabel">Loading…</span></div>
   </header>
@@ -138,6 +143,11 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
     <button type="button" class="tile" data-go="words">
       <span class="thumb t-words"><span class="tt">“ ”</span></span>
       <span class="tmeta"><b>In Your Words</b><span>Customer quotes and reviews, one story each.</span></span>
+      <span class="state ready">Ready</span>
+    </button>
+    <button type="button" class="tile" data-go="blog">
+      <span class="thumb t-blog"><span class="tt">4 × 4:5</span></span>
+      <span class="tmeta"><b>Blog Carousel</b><span>One wide photo split across a 4-slide feed carousel.</span></span>
       <span class="state ready">Ready</span>
     </button>
   </div>
@@ -455,6 +465,68 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
       </div>
     </div>
     <div class="stagewrap"><div class="previews" id="iywPreviews"></div></div>
+  </main>
+</div>
+
+<div class="wrap" id="blog" hidden>
+  <header class="top">
+    <div>
+      <button type="button" class="btn back" data-home>← All story types</button>
+      <h1>Blog Carousel</h1>
+      <p>Upload one wide photo. It splits across four 4:5 slides that read as one continuous picture when you swipe.</p>
+    </div>
+    <p class="legend">4 × 1080 × 1350 PNG · Brand Guide 2026</p>
+  </header>
+
+  <aside class="rail">
+    <section class="sec">
+      <h2>Wide photo</h2>
+      <div class="upl">
+        <input id="bcImgFile" type="file" accept="image/*" hidden>
+        <button class="btn" type="button" id="bcImgBtn">Upload 16:5 photo</button>
+        <button class="btn" type="button" id="bcImgClear" hidden>Remove</button>
+      </div>
+      <p class="hint" id="bcImgInfo">Best at 4320 × 1350 px. Other sizes are cropped to fill.</p>
+      <label class="f">Zoom <span class="tok" id="bcZoomVal"></span><input type="range" id="bcZoom" min="100" max="200" step="1" style="accent-color:var(--accent)"></label>
+      <label class="f">Left to right <span class="tok" id="bcXVal"></span><input type="range" id="bcX" min="0" max="100" step="1" style="accent-color:var(--accent)"></label>
+      <label class="f">Up and down <span class="tok" id="bcYVal"></span><input type="range" id="bcY" min="0" max="100" step="1" style="accent-color:var(--accent)"></label>
+    </section>
+
+    <section class="sec">
+      <h2>Gradient overlay</h2>
+      <div class="swatches" id="bcSwatches" role="group" aria-label="Overlay gradient"></div>
+      <p class="swname" id="bcSwName"></p>
+      <label class="f">Direction
+        <select id="bcDir"><option value="h">Across the carousel (left to right)</option><option value="v">Top to bottom</option></select>
+      </label>
+      <label class="f">Fade toward the bottom <span class="tok" id="bcFadeVal"></span><input type="range" id="bcFade" min="0" max="100" step="5" style="accent-color:var(--accent)"></label>
+      <p class="hint">Overlay strength per slide is set in each slide below. Neighboring slides blend so the seams never show.</p>
+    </section>
+
+    <section class="sec">
+      <h2>Slides</h2>
+      <div id="bcSlides" style="display:flex;flex-direction:column;gap:8px"></div>
+      <button class="btn" type="button" id="bcResetCopy">Reset copy to defaults</button>
+    </section>
+
+    <section class="sec">
+      <h2>Style</h2>
+      <label class="mini"><input type="checkbox" id="bcMark"> Logomark at the top of each slide</label>
+    </section>
+
+    <section class="sec">
+      <h2>Element sizes <button class="btn" type="button" id="bcResetSizes" style="font-size:12px;padding:3px 9px;text-transform:none;letter-spacing:0;font-family:var(--ui)">Reset</button></h2>
+      <div id="bcSliders" class="sliders"></div>
+    </section>
+  </aside>
+
+  <main class="main">
+    <div class="bar">
+      <span class="status" id="bcStatus" role="status"></span>
+      <div class="actions"><button class="btn primary" type="button" id="bcExport">Download 4 slides</button></div>
+    </div>
+    <div class="stagewrap"><div class="bcrow" id="bcPreviews"></div></div>
+    <p class="legend">Slides sit edge to edge here so you can check the photo runs across them. Exports are four separate files, numbered in carousel order.</p>
   </main>
 </div>
 
