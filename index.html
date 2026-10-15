@@ -372,13 +372,18 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
         <button class="btn" type="button" data-step-go="setup">Edit show details</button>
       </section>
       <section class="sec">
+        <h2>Spacing <button class="btn mini-btn" type="button" id="tsResetGaps">Reset</button></h2>
+        <div id="tsGaps" class="sliders"></div>
+        <p class="hint">Pixels at full size. Like sizes, this carries forward to the next stories and never changes ones you've moved past.</p>
+      </section>
+      <section class="sec">
         <h2>Link sticker</h2>
         <div id="tsLink"></div>
       </section>
       <section class="sec">
         <h2>Size and weight <button class="btn mini-btn" type="button" id="resetSizes">Reset</button></h2>
         <div id="sliders" class="sliders"></div>
-        <p class="hint">Changes apply to this story and the ones after it. Stories you have already moved past keep their own settings.</p>
+        <p class="hint">Changes apply to this story and carry forward to the next ones. Stories you have moved past keep their own settings.</p>
       </section>
     </aside>
 

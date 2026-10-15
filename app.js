@@ -45,7 +45,7 @@ const DEFAULT={
   stages:Object.fromEntries(STAGE_DEFS.map(s=>[s.id,{on:true,head:s.head,body:s.body,product:s.product}])),
   logo:null,logoName:'',splash:null,example:true,
   dealerOn:false,dealer:'',dealerLead:'Find Us With',dealerLogo:null,dealerLogoName:'',dealerPanel:false,
-  logoShape:'round',logoShapeColor:'#FFFFFF',dealerShape:'none',dealerShapeColor:'#FFFFFF',link:{on:true,y:79,w:46},frozen:{},safe:true,
+  logoShape:'round',logoShapeColor:'#FFFFFF',dealerShape:'none',dealerShapeColor:'#FFFFFF',link:{on:true,y:79,w:46},frozen:{},safe:true,gap:{top:0,head:0,meta:0,dealer:0,logo:0,lead:0,product:0,body:0},
   w:{eye:500,logo:700,meta:700,dealer:500,learn:700,body:400,booth:500}
 };
 let S=load();
@@ -220,6 +220,7 @@ const SCALE_KEYS={eye:'eye',mark:'mark',logo:'logo',meta:'meta',dealer:'dealer',
 /* Where content may sit. Stories keep clear of Instagram's top bar (250 px) and reply bar (340 px),
    and stop above the link sticker when it is on, so the defaults are post-ready. */
 const SAFE_TOP=250,SAFE_BOTTOM=340;
+const X=k=>Number((S.gap||{})[k]||0);
 function tsBounds(R,W,H){
   if(H<1500)return{top:R.pad,bottom:H-R.pad};
   let top=SAFE_TOP+40,bottom=H-SAFE_BOTTOM-30;
@@ -262,19 +263,19 @@ function measure(ctx,R,stage,W,H){
     L.metaSize=sz;
   }
   L.logoH=R.logo;
-  L.metaH=L.metaLines.length?R.meta*0.75+L.metaLines.length*L.metaSize*1.22:0;
+  L.metaH=L.metaLines.length?R.meta*0.75+X('meta')+L.metaLines.length*L.metaSize*1.22:0;
   // Dealer lockup: "Find Us With" + dealer logo (or name)
   L.dealer=null;
   if(S.dealerOn&&(imgs.dealerLogo||S.dealer.trim())){
     const lead=S.dealerLead.trim(),ls=R.meta*0.72,dh=R.dealer;
-    L.dealer={lead,ls,dh,top:R.meta*1.1};
+    L.dealer={lead,ls,dh,top:R.meta*1.1+X('dealer')};
     L.dealer.h=L.dealer.top+(lead?ls*1.45:0)+dh;
   }
   L.g2=L.logoH+L.metaH+(L.dealer?L.dealer.h:0);
   const showProduct=stage.st.product&&S.product!=='none';
   L.pb=showProduct?productBlock(ctx,R,maxW):null;
   L.lead=S.lead.trim();
-  L.g3=L.pb?((L.lead?R.learn*1.15+R.learn*0.3:0)+L.pb.h):0;
+  L.g3=L.pb?((L.lead?R.learn*1.15+R.learn*0.3+X('lead'):0)+L.pb.h):0;
   L.bodyTxt=fill(stage.st.body,stage);/*book*/L.bodySize=R.body;L.lines=[];
   if(L.bodyTxt){ctx.font=F(WT(S,'body',400),L.bodySize);L.lines=wrap(ctx,L.bodyTxt,maxW*0.94);while(L.lines.length>R.bl&&L.bodySize>R.body*0.6){L.bodySize-=1;ctx.font=F(WT(S,'body',400),L.bodySize);L.lines=wrap(ctx,L.bodyTxt,maxW*0.94)}}
   L.g4=L.lines.length?L.lines.length*L.bodySize*1.36:0;
@@ -286,7 +287,7 @@ function measure(ctx,R,stage,W,H){
   return L;
 }
 
-const FROZEN_KEYS=['scale','w','splashSize','link'];
+const FROZEN_KEYS=['scale','w','splashSize','link','gap'];
 function styleSnapshot(){const o={};FROZEN_KEYS.forEach(k=>o[k]=structuredClone(S[k]));return o}
 function render(canvas,R0,stage,guide){
   const fz=S.frozen&&S.frozen[stage.key];const base=S;
@@ -305,7 +306,8 @@ function renderRaw(canvas,R0,stage){
   const B=L.bounds||{top:R.pad,bottom:H-R.pad};
   const free=B.bottom-B.top-L.used;
   const g=Math.min(Math.max(H*0.012,free/units),H*0.07);
-  let y=B.top+Math.max(0,(B.bottom-B.top-(L.used+g*units))/2);
+  const ex=X('head')+X('logo')+(L.pb&&L.lines.length?X('product'):0)+(L.lines.length&&L.boothTxt?X('body'):0);
+  let y=B.top+Math.max(0,(B.bottom-B.top-(L.used+g*units+ex))/2)+X('top');
   const G=(i)=>i<=1?g*2:g;                       // gap after group i
 
   // 1. headline + logomark (Bold header)
@@ -319,7 +321,7 @@ function renderRaw(canvas,R0,stage){
     ctx.restore();
   }else ctx.fillText(L.head,W/2,y);
   if(imgs.mark)ctx.drawImage(imgs.mark,W/2-L.markW/2,y+L.eyeSize*1.05+L.sag+R.eye*0.55,L.markW,L.markH);
-  y+=L.g1+G(0);
+  y+=L.g1+G(0)+X('head');
 
   // 2. splash + show logo (panel optional) + location/date (Medium subhead)
   const zoneH=L.logoH,zoneY=y;
@@ -329,22 +331,22 @@ function renderRaw(canvas,R0,stage){
     ctx.save();ctx.translate(W/2,zoneY+zoneH/2);ctx.rotate(5*Math.PI/180);ctx.drawImage(sp,-sw/2,-sh/2,sw,sh);ctx.restore();
   }
   logoBlock(ctx,{img:imgs.logo,text:S.show,weight:WT(S,'logo',700),shape:S.logoShape,color:S.logoShapeColor,cx:W/2,cy:zoneY+zoneH/2,maxW:L.maxW,maxH:zoneH});
-  let my=zoneY+zoneH+R.meta*0.75;
+  let my=zoneY+zoneH+R.meta*0.75+X('meta');
   if(L.metaLines.length){ctx.fillStyle='#fff';ctx.font=F(WT(S,'meta',700),L.metaSize);for(const l of L.metaLines){ctx.fillText(l,W/2,my);my+=L.metaSize*1.22}}
   if(L.dealer){
     const D=L.dealer;let dy=zoneY+zoneH+L.metaH+D.top;
     if(D.lead){ctx.fillStyle='#fff';ctx.font=F(WT(S,'dealer',500),D.ls);ctx.fillText(D.lead,W/2,dy);dy+=D.ls*1.45}
     logoBlock(ctx,{img:imgs.dealerLogo,text:S.dealer,weight:700,shape:S.dealerShape,color:S.dealerShapeColor,cx:W/2,cy:dy+D.dh/2,maxW:L.maxW*0.62,maxH:D.dh});
   }
-  y+=L.g2+G(1);
+  y+=L.g2+G(1)+X('logo');
 
   // 3. lead-in (Medium) + product wordmark
   if(L.pb){
-    if(L.lead){ctx.font=F(WT(S,'learn',700),R.learn);ctx.fillStyle='#fff';ctx.fillText(L.lead,W/2,y);y+=R.learn*1.15+R.learn*0.3}
-    L.pb.draw(W/2,y);y+=L.pb.h+(L.lines.length?g*0.45:g);
+    if(L.lead){ctx.font=F(WT(S,'learn',700),R.learn);ctx.fillStyle='#fff';ctx.fillText(L.lead,W/2,y);y+=R.learn*1.15+R.learn*0.3+X('lead')}
+    L.pb.draw(W/2,y);y+=L.pb.h+(L.lines.length?g*0.45+X('product'):g);
   }
   // 4. body (Book)
-  if(L.lines.length){ctx.font=F(WT(S,'body',400),L.bodySize);ctx.fillStyle='#fff';for(const l of L.lines){ctx.fillText(l,W/2,y);y+=L.bodySize*1.36}y+=g}
+  if(L.lines.length){ctx.font=F(WT(S,'body',400),L.bodySize);ctx.fillStyle='#fff';for(const l of L.lines){ctx.fillText(l,W/2,y);y+=L.bodySize*1.36}y+=g+X('body')}
   // 5. booth: plain Bold white type, like the original template
   if(L.boothTxt){ctx.font=F(WT(S,'booth',500),L.boothSize);ctx.fillStyle='#fff';ctx.fillText(L.boothTxt,W/2,y)}
 }
@@ -513,7 +515,7 @@ function tsGoto(step){
   tsStep=step;['intro','setup','review'].forEach(k=>{$('ts'+k[0].toUpperCase()+k.slice(1)).hidden=k!==step});
   const order=['intro','setup','review'];document.querySelectorAll('#tsJourney li').forEach(li=>{const i=order.indexOf(li.dataset.step),c=order.indexOf(step);li.classList.toggle('on',i===c);li.classList.toggle('done',i<c)});
   if(step==='intro'){tsIntroList();const has=!S.example;$('tsResume').hidden=!has;$('tsResumeNote').textContent=has?`Picks up ${S.show.trim()||'your last package'} where you left off.`:''}
-  if(step==='review'){buildTabs();syncStoryEdit();draw()}
+  if(step==='review'){tsBuildGaps();buildTabs();syncStoryEdit();draw()}
   window.scrollTo(0,0);
 }
 function tsNav(){
@@ -526,9 +528,15 @@ function tsNav(){
 function tsSelect(key,freezeCurrent=true){
   if(freezeCurrent&&active&&active!==key){S.frozen=S.frozen||{};S.frozen[active]=styleSnapshot()}
   const fz=S.frozen&&S.frozen[key];
-  if(fz){FROZEN_KEYS.forEach(k=>S[k]=structuredClone(fz[k]));delete S.frozen[key];buildSliders();tsLinkUI()}
+  if(fz){FROZEN_KEYS.forEach(k=>{if(fz[k]!==undefined)S[k]=structuredClone(fz[k])});delete S.frozen[key];buildSliders();tsLinkUI();tsBuildGaps()}
   active=key;save();buildTabs();syncStoryEdit();draw();window.scrollTo(0,0);
 }
+const TS_GAPS=[['top','Move everything up or down'],['head','Headline → show logo'],['meta','Show logo → location'],['dealer','Location → dealer'],['logo','Show block → product'],['lead','Lead-in → product logo'],['product','Product → body line'],['body','Body line → booth']];
+function tsBuildGaps(){const box=$('tsGaps');if(!box)return;box.innerHTML='';S.gap=Object.assign({top:0,head:0,meta:0,dealer:0,logo:0,lead:0,product:0,body:0},S.gap||{});
+  TS_GAPS.forEach(([k,label])=>{if(k==='dealer'&&!S.dealerOn)return;const row=document.createElement('div');row.className='sl';
+    row.innerHTML=`<span>${label}</span><input type="range" min="${k==='top'?-300:-120}" max="${k==='top'?300:260}" step="1" aria-label="${label}"><output>${S.gap[k]} px</output><span></span>`;
+    const i=row.querySelector('input'),o=row.querySelector('output');i.value=S.gap[k];
+    i.addEventListener('input',()=>{S.gap[k]=Number(i.value);o.textContent=i.value+' px';save();draw()});box.appendChild(row)})}
 function tsLinkUI(){linkControls('tsLink',()=>S.link,()=>{save();draw()})}
 $('tsStart').addEventListener('click',()=>{S.frozen={};tsGoto('setup')});
 $('tsResume').addEventListener('click',()=>{const k=stageList()[0]?.key||'';active=null;tsGoto('review');tsSelect(k,false)});
@@ -1156,7 +1164,8 @@ async function fpLoadStored(){const p=await bcIdb.get('fpImg');if(p)fpImgs.produ
   changed(true);
   if(P.logo)imgs.prLogo=await loadImg(P.logo);
   imgs.sawgrass=await loadImg(ASSETS.sawgrass);prSync();
-  if(Hh.img)imgs.holImg=await loadImg(Hh.img);holSync();iywSync();tsLinkUI();guideToggles();
+  if(Hh.img)imgs.holImg=await loadImg(Hh.img);holSync();iywSync();tsLinkUI();tsBuildGaps();guideToggles();
+  $('tsResetGaps').addEventListener('click',()=>{Object.keys(S.gap).forEach(k=>S.gap[k]=0);tsBuildGaps();save();draw()});
   linkControls('prLink',()=>P.link,()=>{save();prDraw()});linkControls('holLink',()=>Hh.link,()=>{save();holDraw()});linkControls('iywLink',()=>Q.link,()=>{save();iywDraw()});linkControls('fpLink',()=>FPS.link,()=>{save();fpDraw()});await bcLoadStored();await fpLoadStored();
   try{const fl=await bcIdb.get('fonts');if(fl&&fl.length)await applyFonts(fl)}catch(e){}
   show(['#stories','#tradeshow','#pr','#holiday','#words','#blog','#fast'].includes(location.hash)?location.hash.slice(1):'home');
