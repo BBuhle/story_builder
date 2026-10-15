@@ -25,7 +25,9 @@ const PRODUCTS=[
 /* Sizes are the target at 1080 px wide. Each ratio has its own hierarchy; the renderer scales a ratio down only if its content would not fit. */
 const RATIOS=[
   {id:'9x16',label:'9:16',H:1920,pad:150,side:110,mark:90,eye:48,logo:220,meta:76,learn:76,word:113,body:45,bl:3,bt:61,splash:872,dealer:150},
+  {id:'4x5',label:'4:5',H:1350,pad:88,side:96,mark:80,eye:46,logo:190,meta:62,learn:62,word:100,body:40,bl:2,bt:56,splash:720,dealer:120},
 ];
+const ratioFor=st=>RATIOS.find(r=>r.id===(st.def.ratio||'9x16'))||RATIOS[0];
 const STAGE_DEFS=[
   {id:'announce',name:'Announcement',when:'Pre-show',head:"We'll See You Soon!",body:'{pitch}',product:true},
   {id:'countdown',name:'Countdown',when:'Pre-show',head:'{days} Days to Go',body:'{pitch}',product:true},
@@ -33,6 +35,7 @@ const STAGE_DEFS=[
   {id:'mid',name:'Middle days',when:'At show',head:'Day {n} Is Here',body:'Live demos running all day. Come say hi.',product:true},
   {id:'last',name:'Last day',when:'At show',head:'Last Day to Visit',body:'Final chance to catch live demos at {show}.',product:true},
   {id:'thanks',name:'Thank you',when:'Post-show',head:'Thank You, {show}!',body:'Thanks to everyone who stopped by. See you next time.',product:false},
+  {id:'feed',name:'Feed post (4:5)',when:'Post-show',head:'Thanks for Visiting Us',body:'Great seeing everyone at {show}. See you next time.',product:true,ratio:'4x5'},
 ];
 
 const DEFAULT={
@@ -42,9 +45,14 @@ const DEFAULT={
   stages:Object.fromEntries(STAGE_DEFS.map(s=>[s.id,{on:true,head:s.head,body:s.body,product:s.product}])),
   logo:null,logoName:'',splash:null,example:true,
   dealerOn:false,dealer:'',dealerLead:'Find Us With',dealerLogo:null,dealerLogoName:'',dealerPanel:false,
+  logoShape:'round',logoShapeColor:'#FFFFFF',dealerShape:'none',dealerShapeColor:'#FFFFFF',link:{on:true,y:76,w:48},frozen:{},safe:false,
   w:{eye:500,logo:700,meta:700,dealer:500,learn:700,body:400,booth:500}
 };
 let S=load();
+// one-time migration from the old white-panel checkboxes to shapes
+if(S.panel===false&&S.logoShape==='round'&&!S._shapesMigrated){S.logoShape='none'}
+if(S.dealerPanel&&S.dealerShape==='none'&&!S._shapesMigrated){S.dealerShape='round'}
+S._shapesMigrated=true;
 window.SG_KEY=KEY;window.SG_STATE=()=>S;
 let active='announce';
 const imgs={};
@@ -84,7 +92,7 @@ function stageList(){
     for(let i=2;i<n;i++)add(d('mid'),{key:'day'+i,n:i,label:'Day '+i});
     add(d('last'),{n});
   }
-  add(d('thanks'));
+  add(d('thanks'));add(d('feed'));
   return out;
 }
 function fill(t,stage){
@@ -100,6 +108,71 @@ const F=(w,px)=>`${w} ${px}px ${fontFamily}`;
 /* Per-element font weight, set from the weight menus beside each size slider */
 const WT=(o,k,d)=>(o&&o.w&&o.w[k])||d;
 const WEIGHTS=[[300,'Light'],[400,'Book'],[500,'Medium'],[700,'Bold']];
+const SHAPES=[['none','No shape'],['round','Rounded box'],['rect','Square box'],['pill','Pill'],['circle','Circle']];
+const SHAPE_COLORS=[['#FFFFFF','White'],['#101921','Black'],['#E04584','Pink'],['#FF7F39','Orange'],['#888B95','Gray'],['#DAD8D9','Light gray']];
+function lum(hex){const n=parseInt(String(hex).replace('#',''),16);if(isNaN(n))return 1;return (0.299*(n>>16&255)+0.587*(n>>8&255)+0.114*(n&255))/255}
+/* Draw a logo (or its name as text) centered on cx,cy, with an optional shape behind it */
+function logoBlock(ctx,{img,text,weight,shape,color,cx,cy,maxW,maxH,onColor}){
+  const has=shape&&shape!=='none',pad=has?Math.min(maxH*0.16,40):0;let bw=maxW-pad*2,bh=maxH-pad*2;
+  if(shape==='circle'){bw=Math.min(bw,maxH*0.62);bh=maxH*0.46}
+  let w,h,drawIt;
+  if(img){const k=Math.min(bw/img.width,bh/img.height);w=img.width*k;h=img.height*k;drawIt=(x,y)=>ctx.drawImage(img,x,y,w,h)}
+  else{const name=(text||'').trim()||'Name';let fs=bh*0.62,ls;const fit=()=>{ctx.font=F(weight,fs);ls=wrap(ctx,name,bw)};fit();
+    while((ls.length>2||ls.length*fs*1.08>bh||ls.some(l=>ctx.measureText(l).width>bw))&&fs>12){fs-=2;fit()}
+    w=Math.max(...ls.map(l=>ctx.measureText(l).width));h=ls.length*fs*1.08;
+    const tc=has?(lum(color)>0.6?'#101921':'#FFFFFF'):(onColor||'#FFFFFF');
+    drawIt=(x,y)=>{ctx.save();ctx.font=F(weight,fs);ctx.fillStyle=tc;ctx.textAlign='center';ctx.textBaseline='top';let ty=y;for(const l of ls){ctx.fillText(l,x+w/2,ty+fs*0.04);ty+=fs*1.08}ctx.restore()}}
+  if(has){ctx.save();ctx.fillStyle=color||'#FFFFFF';ctx.beginPath();
+    if(shape==='circle'){const r=Math.max(w,h)/2+pad*1.2;ctx.arc(cx,cy,Math.min(r,maxH/2),0,Math.PI*2)}
+    else{const x=cx-w/2-pad,y=cy-h/2-pad,ww=w+pad*2,hh=h+pad*2,r=shape==='pill'?hh/2:shape==='round'?Math.min(24,hh*0.14):0;rr(ctx,x,y,ww,hh,r)}
+    ctx.fill();ctx.restore()}
+  drawIt(cx-w/2,cy-h/2);
+}
+function shapeControls(boxId,obj,shapeKey,colorKey,cb){
+  const box=$(boxId);box.innerHTML='';
+  const sel=document.createElement('select');sel.setAttribute('aria-label','Shape');SHAPES.forEach(([v,n])=>{const o=document.createElement('option');o.value=v;o.textContent=n;sel.appendChild(o)});
+  sel.value=obj[shapeKey]||'none';
+  const sw=document.createElement('div');sw.className='colorrow';
+  const paint=()=>{sw.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.c.toLowerCase()===String(obj[colorKey]).toLowerCase())));sw.hidden=sel.value==='none';};
+  SHAPE_COLORS.forEach(([c,n])=>{const b=document.createElement('button');b.type='button';b.className='dot';b.title=n;b.setAttribute('aria-label',n+' shape');b.style.background=c;b.dataset.c=c;b.addEventListener('click',()=>{obj[colorKey]=c;paint();cb()});sw.appendChild(b)});
+  const pick=document.createElement('input');pick.type='color';pick.title='Custom color';pick.setAttribute('aria-label','Custom shape color');pick.value=/^#[0-9a-f]{6}$/i.test(obj[colorKey])?obj[colorKey]:'#ffffff';
+  pick.addEventListener('input',()=>{obj[colorKey]=pick.value;paint();cb()});sw.appendChild(pick);
+  sel.addEventListener('change',()=>{obj[shapeKey]=sel.value;paint();cb()});
+  const lab=document.createElement('label');lab.className='f';lab.textContent='Shape behind it';lab.appendChild(sel);box.appendChild(lab);box.appendChild(sw);paint();
+}
+/* Preview-only overlays: link sticker zone and Instagram safety guides. Never drawn into exports. */
+function drawLinkZone(ctx,W,H,link){
+  if(!link||!link.on)return;const w=W*(link.w||48)/100,h=Math.round(w*0.23),cy=H*(link.y||76)/100;
+  ctx.save();ctx.setLineDash([16,12]);ctx.lineWidth=4;ctx.strokeStyle='rgba(255,255,255,.85)';ctx.shadowColor='rgba(16,25,33,.35)';ctx.shadowBlur=6;
+  rr(ctx,W/2-w/2,cy-h/2,w,h,h/2);ctx.stroke();ctx.shadowBlur=0;ctx.setLineDash([]);
+  ctx.font=F(500,Math.round(h*0.3));ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(255,255,255,.95)';ctx.fillText('Link sticker',W/2,cy);ctx.restore();
+}
+function drawGuides(ctx,W,H){
+  if(!S.safe)return;ctx.save();ctx.fillStyle='rgba(0,184,82,.22)';ctx.strokeStyle='rgba(0,184,82,.9)';ctx.lineWidth=3;
+  const lab=(t,x,y)=>{ctx.font=F(600,30);ctx.textAlign='left';ctx.textBaseline='top';ctx.fillStyle='rgba(255,255,255,.9)';ctx.shadowColor='rgba(0,0,0,.5)';ctx.shadowBlur=4;ctx.fillText(t,x,y);ctx.shadowBlur=0;ctx.fillStyle='rgba(0,184,82,.22)'};
+  if(H/W>1.7){const t=250,b=340,s=64;
+    ctx.fillRect(0,0,W,t);ctx.fillRect(0,H-b,W,b);ctx.fillRect(0,t,s,H-t-b);ctx.fillRect(W-s,t,s,H-t-b);ctx.strokeRect(s,t,W-2*s,H-t-b);
+    lab('Profile and progress bar',s+12,t-40);lab('Reply bar and stickers',s+12,H-b+12)}
+  else if(Math.abs(H/W-1.25)<0.02){const s=Math.round((W-H*0.75)/2);ctx.fillRect(0,0,s,H);ctx.fillRect(W-s,0,s,H);ctx.strokeRect(s,0,W-2*s,H);lab('Profile grid crops to 3:4',s+12,16)}
+  ctx.restore();
+}
+function linkControls(boxId,get,cb){
+  const box=$(boxId);if(!box)return;box.innerHTML='';const L=get();
+  box.innerHTML=`<label class="mini"><input type="checkbox"> Show the link sticker zone</label>
+    <div class="sl"><span>Up and down</span><input type="range" min="40" max="92" step="1" aria-label="Link zone position"><output></output><span></span></div>
+    <div class="sl"><span>Width</span><input type="range" min="25" max="80" step="1" aria-label="Link zone width"><output></output><span></span></div>
+    <p class="hint">Preview only. It marks where the Instagram link sticker goes and never appears in the download.</p>`;
+  const [on,y,w]=box.querySelectorAll('input'),[oy,ow]=box.querySelectorAll('output');
+  on.checked=!!L.on;y.value=L.y;w.value=L.w;oy.textContent=L.y+'%';ow.textContent=L.w+'%';
+  on.addEventListener('change',()=>{get().on=on.checked;cb()});
+  y.addEventListener('input',()=>{get().y=Number(y.value);oy.textContent=y.value+'%';cb()});
+  w.addEventListener('input',()=>{get().w=Number(w.value);ow.textContent=w.value+'%';cb()});
+}
+function guideToggles(){
+  document.querySelectorAll('[data-guides]').forEach(el=>{el.innerHTML='<label class="mini guidetoggle"><input type="checkbox"> Safety guides</label>';const c=el.querySelector('input');c.checked=!!S.safe;
+    c.addEventListener('change',()=>{S.safe=c.checked;document.querySelectorAll('[data-guides] input').forEach(x=>x.checked=S.safe);save();redrawAll()})});
+}
+function previewOverlays(canvas,link){const ctx=canvas.getContext('2d');drawLinkZone(ctx,canvas.width,canvas.height,link);drawGuides(ctx,canvas.width,canvas.height)}
 function wsel(o,k,label,cb){
   if(!o.w||!(k in o.w)){const sp=document.createElement('span');return sp}
   const s=document.createElement('select');s.className='wsel';s.setAttribute('aria-label',label+' weight');
@@ -201,7 +274,14 @@ function measure(ctx,R,stage,W,H){
   return L;
 }
 
-function render(canvas,R0,stage){
+const FROZEN_KEYS=['scale','w','splashSize','link'];
+function styleSnapshot(){const o={};FROZEN_KEYS.forEach(k=>o[k]=structuredClone(S[k]));return o}
+function render(canvas,R0,stage,guide){
+  const fz=S.frozen&&S.frozen[stage.key];const base=S;
+  if(fz)S=Object.assign({},base,structuredClone(fz));
+  try{renderRaw(canvas,R0,stage);if(guide)previewOverlays(canvas,R0.H>1500?S.link:null)}finally{S=base}
+}
+function renderRaw(canvas,R0,stage){
   const W=1080,H=R0.H;canvas.width=W;canvas.height=H;
   const ctx=canvas.getContext('2d');ctx.imageSmoothingQuality='high';
   ctx.clearRect(0,0,W,H);drawBg(ctx,W,H);
@@ -235,34 +315,13 @@ function render(canvas,R0,stage){
     const sh=R.splash*k,sw=sh*sp.width/sp.height;
     ctx.save();ctx.translate(W/2,zoneY+zoneH/2);ctx.rotate(5*Math.PI/180);ctx.drawImage(sp,-sw/2,-sh/2,sw,sh);ctx.restore();
   }
-  const panel=!!S.panel;
-  const cardW=panel?Math.min(L.maxW,zoneH*3.2):L.maxW,cardX=W/2-cardW/2;
-  if(panel){rr(ctx,cardX,zoneY,cardW,zoneH,zoneH*0.09);ctx.fillStyle='#fff';ctx.fill()}
-  const ip=panel?zoneH*0.13:0;
-  if(imgs.logo){
-    const lw=cardW-ip*2,lh=zoneH-ip*2,lg=imgs.logo;const sc=Math.min(lw/lg.width,lh/lg.height);
-    ctx.drawImage(lg,W/2-lg.width*sc/2,zoneY+zoneH/2-lg.height*sc/2,lg.width*sc,lg.height*sc);
-  }else{
-    const name=S.show.trim()||'Show Name';ctx.fillStyle=panel?INK:'#fff';
-    const box=cardW-ip*2;let fs=zoneH*(panel?0.42:0.7);ctx.font=F(WT(S,'logo',700),fs);let ls=wrap(ctx,name,box);
-    while((ls.length>2||ls.length*fs*1.08>zoneH*(panel?0.74:0.8)||ls.some(l=>ctx.measureText(l).width>box))&&fs>14){fs-=2;ctx.font=F(WT(S,'logo',700),fs);ls=wrap(ctx,name,box)}
-    const th=ls.length*fs*1.08;let ty=zoneY+zoneH/2-th/2;
-    for(const l of ls){ctx.fillText(l,W/2,ty+fs*0.04);ty+=fs*1.08}
-  }
+  logoBlock(ctx,{img:imgs.logo,text:S.show,weight:WT(S,'logo',700),shape:S.logoShape,color:S.logoShapeColor,cx:W/2,cy:zoneY+zoneH/2,maxW:L.maxW,maxH:zoneH});
   let my=zoneY+zoneH+R.meta*0.75;
   if(L.metaLines.length){ctx.fillStyle='#fff';ctx.font=F(WT(S,'meta',700),L.metaSize);for(const l of L.metaLines){ctx.fillText(l,W/2,my);my+=L.metaSize*1.22}}
   if(L.dealer){
     const D=L.dealer;let dy=zoneY+zoneH+L.metaH+D.top;
     if(D.lead){ctx.fillStyle='#fff';ctx.font=F(WT(S,'dealer',500),D.ls);ctx.fillText(D.lead,W/2,dy);dy+=D.ls*1.45}
-    const dp=!!S.dealerPanel,pad=dp?D.dh*0.16:0,maxLW=L.maxW*0.62;
-    if(imgs.dealerLogo){
-      const lg=imgs.dealerLogo,sc=Math.min((maxLW-pad*2)/lg.width,(D.dh-pad*2)/lg.height),w=lg.width*sc,h=lg.height*sc;
-      if(dp){rr(ctx,W/2-w/2-pad,dy+(D.dh-h)/2-pad,w+pad*2,h+pad*2,Math.min(24,(h+pad*2)*0.12));ctx.fillStyle='#fff';ctx.fill()}
-      ctx.drawImage(lg,W/2-w/2,dy+(D.dh-h)/2,w,h);
-    }else{
-      const name=S.dealer.trim();let fs=D.dh*0.5;ctx.font=F(700,fs);while(ctx.measureText(name).width>L.maxW&&fs>20){fs-=2;ctx.font=F(700,fs)}
-      ctx.fillStyle='#fff';ctx.fillText(name,W/2,dy+(D.dh-fs)/2);
-    }
+    logoBlock(ctx,{img:imgs.dealerLogo,text:S.dealer,weight:700,shape:S.dealerShape,color:S.dealerShapeColor,cx:W/2,cy:dy+D.dh/2,maxW:L.maxW*0.62,maxH:D.dh});
   }
   y+=L.g2+G(1);
 
@@ -284,7 +343,7 @@ bindText('start','start');bindText('end','end');bindText('lead','lead');
 bindText('pitch','pitch',()=>{S.pitchEdited=true});
 bindText('dealer','dealer');bindText('dealerLead','dealerLead');
 $('dealerOn').checked=!!S.dealerOn;$('dealerOn').addEventListener('change',e=>{S.dealerOn=e.target.checked;changed()});
-$('dealerPanel').checked=!!S.dealerPanel;$('dealerPanel').addEventListener('change',e=>{S.dealerPanel=e.target.checked;changed()});
+shapeControls('dealerShapeBox',S,'dealerShape','dealerShapeColor',()=>changed());
 $('dealerLogoBtn').addEventListener('click',()=>$('dealerLogoFile').click());
 $('dealerLogoFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;S.dealerLogo=await readFile(f);S.dealerLogoName=f.name;imgs.dealerLogo=await loadImg(S.dealerLogo);e.target.value='';changed()});
 $('dealerLogoClear').addEventListener('click',()=>{S.dealerLogo=null;S.dealerLogoName='';imgs.dealerLogo=null;changed()});
@@ -316,14 +375,14 @@ GRADS.forEach(g=>{const b=document.createElement('button');b.type='button';b.cla
 
 $('splashOn').checked=!!S.splashOn;$('splashOn').addEventListener('change',e=>{S.splashOn=e.target.checked;changed()});
 $('archOn').checked=!!S.arch;$('archOn').addEventListener('change',e=>{S.arch=e.target.checked;changed()});
-$('panelOn').checked=!!S.panel;$('panelOn').addEventListener('change',e=>{S.panel=e.target.checked;changed()});
+shapeControls('logoShapeBox',S,'logoShape','logoShapeColor',()=>changed());
 const SLIDERS=[['eye','Headline'],['mark','Logomark'],['logo','Show logo'],['meta','Location and date'],['dealer','Dealer'],['learn','Lead-in'],['word','Product logo'],['body','Body line'],['booth','Booth'],['splash','Ink splash']];
 function buildSliders(){
   const box=$('sliders');box.innerHTML='';
   SLIDERS.forEach(([k,label])=>{
     const row=document.createElement('div');row.className='sl';
     const val=k==='splash'?S.splashSize:S.scale[k];
-    row.innerHTML=`<span>${label}</span><input type="range" id="size-${k}" min="50" max="200" step="5" aria-label="${label} size"><output>${val}%</output>`;
+    row.innerHTML=`<span>${label}</span><input type="range" id="size-${k}" min="25" max="250" step="1" aria-label="${label} size"><output>${val}%</output>`;
     const inp=row.querySelector('input'),out=row.querySelector('output');inp.value=val;
     inp.addEventListener('input',()=>{const v=Number(inp.value);if(k==='splash')S.splashSize=v;else S.scale[k]=v;out.textContent=v+'%';changed()});
     row.appendChild(wsel(S,k,label,changed));box.appendChild(row);
@@ -378,18 +437,19 @@ function buildTabs(){
   if(!list.find(s=>s.key===active))active=list[0]?.key||'';
   list.forEach((s,i)=>{const b=document.createElement('button');b.type='button';b.className='tab';b.role='tab';
     b.innerHTML=`<span></span><span class="n">${i+1}/${list.length}</span>`;b.firstChild.textContent=s.label;b.setAttribute('aria-selected',String(s.key===active));
-    b.addEventListener('click',()=>{active=s.key;buildTabs();syncStoryEdit();draw()});t.appendChild(b)});
+    if(S.frozen&&S.frozen[s.key])b.classList.add('done');
+    b.addEventListener('click',()=>tsSelect(s.key));t.appendChild(b)});
   $('tsCount').textContent=list.length?`${list.length} stories`:'';
-  $('pkgCount').textContent=`Package: ${list.length} stor${list.length===1?'y':'ies'}, one 1080 × 1920 PNG each`;
+  $('pkgCount').textContent=`Package: ${list.length} files, Stories at 1080 × 1920 and the feed post at 1080 × 1350`;
   tsNav();
 }
 function draw(){
   const pv=$('previews');pv.innerHTML='';
   const st=stageList().find(s=>s.key===active);
-  const rs=RATIOS.filter(r=>S.ratios[r.id]);
+  const rs=st?[ratioFor(st)]:[];
   if(!st||!rs.length){pv.innerHTML='<p class="empty">Turn on at least one stage and one size to see a preview.</p>';return}
   rs.forEach(r=>{const fig=document.createElement('figure');fig.className='r'+r.id;const c=document.createElement('canvas');c.setAttribute('aria-label',`${st.label} at ${r.label}`);
-    fig.appendChild(c);const cap=document.createElement('figcaption');cap.textContent=`${r.label} · 1080×${r.H}`;fig.appendChild(cap);pv.appendChild(fig);render(c,r,st)});
+    fig.appendChild(c);const cap=document.createElement('figcaption');cap.textContent=`${r.label} · 1080×${r.H}`;fig.appendChild(cap);pv.appendChild(fig);render(c,r,st,true)});
 }
 function syncUI(){
   document.querySelectorAll('#swatches .sw').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.id===S.grad)));
@@ -410,15 +470,14 @@ let downloads=null;
 function slug(s){return (s||'show').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'show'}
 function toBlob(c){return new Promise(r=>c.toBlob(r,'image/png'))}
 async function exportStages(list){
-  const rs=RATIOS.filter(r=>S.ratios[r.id]);
   if(!downloads){$('status').textContent='Downloads are not available in this browser.';return}
-  if(!list.length||!rs.length){$('status').textContent='Nothing to export. Turn on a stage and a size.';return}
+  if(!list.length){$('status').textContent='Nothing to export. Turn on a stage and a size.';return}
   const btns=[$('exportOne'),$('exportAll'),$('tsNext')];btns.forEach(b=>b.disabled=true);
   try{
     $('status').textContent='Rendering…';
     const zip=new JSZip();const base=slug(S.show);
     const c=document.createElement('canvas');let i=0;
-    for(const st of list){const sk=slug(st.label.replace(/\(.*\)/,''));for(const r of rs){render(c,r,st);i++;const b=await toBlob(c);zip.file(`${base}/${String(list.indexOf(st)+1).padStart(2,'0')}_${base}_${sk}.png`,b)}}
+    for(const st of list){const sk=slug(st.label.replace(/\(.*\)/,''));for(const r of [ratioFor(st)]){render(c,r,st);i++;const b=await toBlob(c);zip.file(`${base}/${String(list.indexOf(st)+1).padStart(2,'0')}_${base}_${sk}.png`,b)}}
     const blob=await zip.generateAsync({type:'blob'});
     const name=list.length===1?`${base}_${slug(list[0].label.replace(/\(.*\)/,''))}.zip`:`${base}_stories.zip`;
     $('status').textContent=`Saving ${i} PNGs…`;
@@ -449,16 +508,25 @@ function tsNav(){
   $('tsPrev').textContent=i<=0?'← Show details':'← Back';
   $('tsNext').textContent=last?'Finish and download':'Next →';
 }
-$('tsStart').addEventListener('click',()=>tsGoto('setup'));
-$('tsResume').addEventListener('click',()=>{active=stageList()[0]?.key||'';tsGoto('review')});
+/* Moving off a story locks its sizes, weights and link zone, so edits on later stories never change it.
+   Coming back to a story unlocks it and loads its settings into the controls. */
+function tsSelect(key,freezeCurrent=true){
+  if(freezeCurrent&&active&&active!==key){S.frozen=S.frozen||{};S.frozen[active]=styleSnapshot()}
+  const fz=S.frozen&&S.frozen[key];
+  if(fz){FROZEN_KEYS.forEach(k=>S[k]=structuredClone(fz[k]));delete S.frozen[key];buildSliders();tsLinkUI()}
+  active=key;save();buildTabs();syncStoryEdit();draw();window.scrollTo(0,0);
+}
+function tsLinkUI(){linkControls('tsLink',()=>S.link,()=>{save();draw()})}
+$('tsStart').addEventListener('click',()=>{S.frozen={};tsGoto('setup')});
+$('tsResume').addEventListener('click',()=>{const k=stageList()[0]?.key||'';active=null;tsGoto('review');tsSelect(k,false)});
 document.querySelectorAll('[data-step-go]').forEach(b=>b.addEventListener('click',()=>tsGoto(b.dataset.stepGo)));
 $('tsGo').addEventListener('click',()=>{
   if(!S.show.trim()&&!S.logo){$('tsSetupMsg').textContent='Add the show name or upload its logo first.';$('show').focus();return}
   if(!stageList().length){$('tsSetupMsg').textContent='Turn on at least one story.';return}
-  $('tsSetupMsg').textContent='';active=stageList()[0].key;tsGoto('review');
+  $('tsSetupMsg').textContent='';const k=stageList()[0].key;active=null;tsGoto('review');tsSelect(k,false);
 });
-$('tsPrev').addEventListener('click',()=>{const list=stageList(),i=list.findIndex(s=>s.key===active);if(i<=0){tsGoto('setup');return}active=list[i-1].key;buildTabs();syncStoryEdit();draw();window.scrollTo(0,0)});
-$('tsNext').addEventListener('click',()=>{const list=stageList(),i=list.findIndex(s=>s.key===active);if(i>=list.length-1){exportStages(list);return}active=list[i+1].key;buildTabs();syncStoryEdit();draw();window.scrollTo(0,0)});
+$('tsPrev').addEventListener('click',()=>{const list=stageList(),i=list.findIndex(s=>s.key===active);if(i<=0){tsGoto('setup');return}tsSelect(list[i-1].key)});
+$('tsNext').addEventListener('click',()=>{const list=stageList(),i=list.findIndex(s=>s.key===active);if(i>=list.length-1){S.frozen=S.frozen||{};S.frozen[active]=styleSnapshot();save();buildTabs();exportStages(list);return}tsSelect(list[i+1].key)});
 $('exportAll').addEventListener('click',()=>exportStages(stageList()));
 $('exportOne').addEventListener('click',()=>exportStages(stageList().filter(s=>s.key===active)));
 
@@ -466,7 +534,7 @@ $('exportOne').addEventListener('click',()=>exportStages(stageList().filter(s=>s
 const PR_DEFAULT={pub:'Ink World',logo:null,logoName:'',panel:true,featOn:true,quoteOn:true,
   label:'Featured In',head:'Sawgrass Leads Way in Sublimation Ink, Printing Market',byline:'By David Savastano, Editor',
   quote:"Decorators shouldn't have to choose between capability and ease of use. When the printer, ink and software are designed to work together, you stop thinking about the equipment. You just make things.",
-  grad:'bp',ink:'white',glow:false,mark:true,guide:true,example:true,
+  grad:'bp',ink:'white',glow:false,mark:true,guide:true,example:true,link:{on:true,y:85,w:48},
   scale:{logo:100,label:100,head:100,byline:100,quote:100}};
 S.pr=Object.assign(structuredClone(PR_DEFAULT),S.pr||{});S.pr.w=Object.assign({logo:700,label:500,head:700,byline:400,quote:400},S.pr.w||{});S.pr.scale=Object.assign({},PR_DEFAULT.scale,S.pr.scale||{});
 const P=S.pr;
@@ -529,18 +597,13 @@ function prRender(canvas,kind,guide){
     ctx.textAlign='left';ctx.fillStyle=ink;ctx.font=F(WT(P,'quote',400),qs);
     for(const l of ql){ctx.fillText(l,x0,y);y+=qs*1.55}
   }
-  if(guide){
-    ctx.save();ctx.setLineDash([16,12]);ctx.lineWidth=4;ctx.strokeStyle=P.ink==='black'?'rgba(16,25,33,.55)':'rgba(255,255,255,.75)';
-    rr(ctx,W/2-260,1580,520,120,60);ctx.stroke();ctx.setLineDash([]);
-    ctx.font=F(500,34);ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=ctx.strokeStyle;ctx.fillText('Read More sticker',W/2,1640);ctx.restore();
-  }
 }
 function prStories(){const o=[];if(P.featOn)o.push({key:'feature',label:'Feature'});if(P.quoteOn)o.push({key:'quote',label:'Quote'});return o}
 function prDraw(){
   const pv=$('prPreviews');pv.innerHTML='';const list=prStories();
   if(!list.length){pv.innerHTML='<p class="empty">Turn on the feature or quote story to see a preview.</p>';return}
   list.forEach(s=>{const fig=document.createElement('figure');const c=document.createElement('canvas');c.setAttribute('aria-label',`${s.label} story`);fig.appendChild(c);
-    const cap=document.createElement('figcaption');cap.textContent=`${s.label} · 1080×1920`;fig.appendChild(cap);pv.appendChild(fig);prRender(c,s.key,P.guide)});
+    const cap=document.createElement('figcaption');cap.textContent=`${s.label} · 1080×1920`;fig.appendChild(cap);pv.appendChild(fig);prRender(c,s.key,false);previewOverlays(c,P.link)});
 }
 function prSync(){
   document.querySelectorAll('#prSwatches .sw').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.id===P.grad)));
@@ -553,14 +616,14 @@ function prSync(){
 let prRaf;function prChanged(){prSync();save();cancelAnimationFrame(prRaf);prRaf=requestAnimationFrame(prDraw)}
 function prBind(id,key,ev){const el=$(id);if(el.type==='checkbox'){el.checked=!!P[key];el.addEventListener('change',()=>{P[key]=el.checked;prChanged()})}
   else{el.value=P[key]??'';el.addEventListener(ev||'input',()=>{P[key]=el.value;if(['pub','head','byline','quote','label'].includes(key))P.example=false;prChanged()})}}
-[['prPub','pub'],['prLabel','label'],['prHead','head'],['prByline','byline'],['prQuote','quote'],['prPanel','panel'],['prFeatOn','featOn'],['prQuoteOn','quoteOn'],['prGlow','glow'],['prMark','mark'],['prGuide','guide']].forEach(([i,k])=>prBind(i,k));
+[['prPub','pub'],['prLabel','label'],['prHead','head'],['prByline','byline'],['prQuote','quote'],['prPanel','panel'],['prFeatOn','featOn'],['prQuoteOn','quoteOn'],['prGlow','glow'],['prMark','mark']].forEach(([i,k])=>prBind(i,k));
 prBind('prInk','ink','change');
 GRADS.forEach(g=>{const b=document.createElement('button');b.type='button';b.className='sw';b.title=g.name;b.setAttribute('aria-label',g.name);
   b.style.background=g.img?`center/cover url(${ASSETS.vfbg})`:`linear-gradient(180deg,${g.a},${g.b})`;b.dataset.id=g.id;
   b.addEventListener('click',()=>{P.grad=g.id;prChanged()});$('prSwatches').appendChild(b)});
 const PR_SLIDERS=[['logo','Publication logo'],['label','Label'],['head','Headline'],['byline','Byline'],['quote','Quote']];
 function prBuildSliders(){const box=$('prSliders');box.innerHTML='';PR_SLIDERS.forEach(([k,label])=>{const row=document.createElement('div');row.className='sl';
-  row.innerHTML=`<span>${label}</span><input type="range" id="pr-size-${k}" min="50" max="200" step="5" aria-label="${label} size"><output>${P.scale[k]}%</output>`;
+  row.innerHTML=`<span>${label}</span><input type="range" id="pr-size-${k}" min="25" max="250" step="1" aria-label="${label} size"><output>${P.scale[k]}%</output>`;
   const i=row.querySelector('input'),o=row.querySelector('output');i.value=P.scale[k];i.addEventListener('input',()=>{P.scale[k]=Number(i.value);o.textContent=i.value+'%';prChanged()});row.appendChild(wsel(P,k,label,prChanged));box.appendChild(row)})}
 prBuildSliders();
 $('prResetSizes').addEventListener('click',()=>{Object.keys(P.scale).forEach(k=>P.scale[k]=100);Object.assign(P.w,{logo:700,label:500,head:700,byline:400,quote:400});prBuildSliders();prChanged()});
@@ -582,8 +645,15 @@ $('prExport').addEventListener('click',async()=>{
 });
 
 /* ================= Holiday Closure Stories ================= */
+const HOL_PRESETS=[
+  {id:'hours',name:'Holiday Hours',head:'Holiday Hours',p1:'{team} will be out of the office {closed}.',p2:'We’ll return to normal hours on {return}.',p3:'While we’re away, our online resources are available anytime at care.sawgrassink.com.',sign:'Thank you!'},
+  {id:'closure',name:'Office Closure',head:'Office Closure',p1:'{team} will be closed {closed}.',p2:'We’ll be back on {return}.',p3:'Our online resources are available anytime at care.sawgrassink.com.',sign:'Thank you!'},
+  {id:'shipping',name:'Shipping Update',head:'Shipping Update',p1:'Orders placed {closed} will ship starting {return}.',p2:'Thank you for your patience while our team catches up.',p3:'Questions? Visit care.sawgrassink.com.',sign:'Thank you!'},
+  {id:'maint',name:'Scheduled Maintenance',head:'Scheduled Maintenance',p1:'Our website will be down for maintenance {closed}.',p2:'Everything will be back up by {return}.',p3:'Need help in the meantime? Visit care.sawgrassink.com.',sign:'Thanks for your patience!'},
+  {id:'custom',name:'Custom message',head:'Heads Up',p1:'',p2:'',p3:'',sign:''},
+];
 const HOL_COPY={p1:'{team} will be out of the office {closed}.',p2:"We’ll return to normal hours on {return}.",p3:"While we’re away, our online resources are available anytime at care.sawgrassink.com.",sign:'Thank you!'};
-const HOL_DEFAULT=Object.assign({layout:'hours',head:'Holiday Hours',headEdited:false,teamPick:'Our Global Care Teams',team:'',
+const HOL_DEFAULT=Object.assign({preset:'hours',link:{on:false,y:80,w:48},layout:'hours',head:'Holiday Hours',headEdited:false,teamPick:'Our Global Care Teams',team:'',
   start:'2026-12-24',end:'2026-12-26',back:'2026-12-29',grad:'po',word:true,mark:true,img:null,
   scale:{logo:100,head:100,body:100,sign:100,img:100}},HOL_COPY);
 S.hol=Object.assign(structuredClone(HOL_DEFAULT),S.hol||{});S.hol.w=Object.assign({head:700,body:400,sign:500},S.hol.w||{});S.hol.scale=Object.assign({},HOL_DEFAULT.scale,S.hol.scale||{});
@@ -651,8 +721,8 @@ function holRender(canvas,guide){
     }
   }
 }
-function holDraw(){const pv=$('holPreviews');pv.innerHTML='';const fig=document.createElement('figure');const c=document.createElement('canvas');c.setAttribute('aria-label','Holiday story');fig.appendChild(c);
-  const cap=document.createElement('figcaption');cap.textContent=(Hh.layout==='hours'?'Holiday Hours':'Holiday Closure')+' · 1080×1920';fig.appendChild(cap);pv.appendChild(fig);holRender(c,true)}
+function holDraw(){const pv=$('holPreviews');pv.innerHTML='';const fig=document.createElement('figure');const c=document.createElement('canvas');c.setAttribute('aria-label','Alert story');fig.appendChild(c);
+  const cap=document.createElement('figcaption');cap.textContent=(Hh.head||'Alert')+' · 1080×1920';fig.appendChild(cap);pv.appendChild(fig);holRender(c,true);previewOverlays(c,Hh.link)}
 function holSync(){
   document.querySelectorAll('input[name=holLayout]').forEach(r=>r.checked=r.value===Hh.layout);
   const hours=Hh.layout==='hours';
@@ -669,16 +739,19 @@ function holBind(id,key,ev,after){const el=$(id);if(el.type==='checkbox'){el.che
 holBind('holHead','head','input',()=>{Hh.headEdited=true});
 [['holTeam','team'],['holStart','start'],['holEnd','end'],['holBack','back'],['holP1','p1'],['holP2','p2'],['holP3','p3'],['holSign','sign'],['holWord','word'],['holMark','mark']].forEach(([i,k])=>holBind(i,k));
 holBind('holTeamPick','teamPick','change');
-document.querySelectorAll('input[name=holLayout]').forEach(r=>r.addEventListener('change',()=>{Hh.layout=r.value;
-  if(!Hh.headEdited){Hh.head=Hh.layout==='hours'?'Holiday Hours':'Holiday Closure';$('holHead').value=Hh.head}holChanged()}));
-$('holResetCopy').addEventListener('click',()=>{Object.assign(Hh,HOL_COPY);['p1','p2','p3','sign'].forEach(k=>$('hol'+(k==='sign'?'Sign':k.toUpperCase())).value=Hh[k]);
-  Hh.headEdited=false;Hh.head=Hh.layout==='hours'?'Holiday Hours':'Holiday Closure';$('holHead').value=Hh.head;holChanged()});
+document.querySelectorAll('input[name=holLayout]').forEach(r=>r.addEventListener('change',()=>{Hh.layout=r.value;holChanged()}));
+HOL_PRESETS.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name;$('holPreset').appendChild(o)});
+$('holPreset').value=Hh.preset||'hours';
+function holApplyPreset(){const p=HOL_PRESETS.find(x=>x.id===Hh.preset)||HOL_PRESETS[0];['head','p1','p2','p3','sign'].forEach(k=>Hh[k]=p[k]);Hh.headEdited=false;
+  $('holHead').value=Hh.head;$('holP1').value=Hh.p1;$('holP2').value=Hh.p2;$('holP3').value=Hh.p3;$('holSign').value=Hh.sign;holChanged()}
+$('holPreset').addEventListener('change',e=>{Hh.preset=e.target.value;holApplyPreset()});
+$('holResetCopy').addEventListener('click',()=>holApplyPreset());
 GRADS.forEach(g=>{const b=document.createElement('button');b.type='button';b.className='sw';b.title=g.name;b.setAttribute('aria-label',g.name);
   b.style.background=g.img?`center/cover url(${ASSETS.vfbg})`:`linear-gradient(180deg,${g.a},${g.b})`;b.dataset.id=g.id;
   b.addEventListener('click',()=>{Hh.grad=g.id;holChanged()});$('holSwatches').appendChild(b)});
 const HOL_SLIDERS=[['logo','Logos'],['head','Headline'],['body','Body copy'],['sign','Sign-off'],['img','Photo']];
 function holBuildSliders(){const box=$('holSliders');box.innerHTML='';HOL_SLIDERS.forEach(([k,label])=>{const row=document.createElement('div');row.className='sl';
-  row.innerHTML=`<span>${label}</span><input type="range" id="hol-size-${k}" min="50" max="200" step="5" aria-label="${label} size"><output>${Hh.scale[k]}%</output>`;
+  row.innerHTML=`<span>${label}</span><input type="range" id="hol-size-${k}" min="25" max="250" step="1" aria-label="${label} size"><output>${Hh.scale[k]}%</output>`;
   const i=row.querySelector('input'),o=row.querySelector('output');i.value=Hh.scale[k];i.addEventListener('input',()=>{Hh.scale[k]=Number(i.value);o.textContent=i.value+'%';holChanged()});row.appendChild(wsel(Hh,k,label,holChanged));box.appendChild(row)})}
 holBuildSliders();
 $('holResetSizes').addEventListener('click',()=>{Object.keys(Hh.scale).forEach(k=>Hh.scale[k]=100);Object.assign(Hh.w,{head:700,body:400,sign:500});holBuildSliders();holChanged()});
@@ -695,7 +768,7 @@ $('holExport').addEventListener('click',async()=>{
 });
 
 /* ================= In Your Words ================= */
-const IYW_DEFAULT={grad:'yo',marks:true,word:true,example:true,active:0,
+const IYW_DEFAULT={link:{on:false,y:86,w:48},grad:'yo',marks:true,word:true,example:true,active:0,
   items:[{quote:"I'm over the moon to be up and running thanks to you! You handled my situation with extreme professionalism, in a kind, understanding and caring manner. I truly can't thank you enough, Lauren.",name:'Sharron',role:'Sawgrass Customer'}],
   scale:{marks:100,quote:100,attr:100,logo:100}};
 S.iyw=Object.assign(structuredClone(IYW_DEFAULT),S.iyw||{});S.iyw.w=Object.assign({quote:700,attr:400},S.iyw.w||{});S.iyw.scale=Object.assign({},IYW_DEFAULT.scale,S.iyw.scale||{});
@@ -738,7 +811,7 @@ function iywDraw(){
     b.addEventListener('click',()=>{Q.active=i;iywDraw()});t.appendChild(b)});
   const pv=$('iywPreviews');pv.innerHTML='';const fig=document.createElement('figure');const c=document.createElement('canvas');c.setAttribute('aria-label','Quote story');
   fig.appendChild(c);const cap=document.createElement('figcaption');cap.textContent=`Quote ${Q.active+1} of ${Q.items.length} · 1080×1920`;fig.appendChild(cap);pv.appendChild(fig);
-  iywRender(c,Q.items[Q.active]);
+  iywRender(c,Q.items[Q.active]);previewOverlays(c,Q.link);
 }
 function iywBuildList(){
   const box=$('iywList');box.innerHTML='';
@@ -771,7 +844,7 @@ GRADS.forEach(g=>{const b=document.createElement('button');b.type='button';b.cla
   b.addEventListener('click',()=>{Q.grad=g.id;iywChanged()});$('iywSwatches').appendChild(b)});
 const IYW_SLIDERS=[['marks','Quote marks'],['quote','Quote'],['attr','Attribution'],['logo','Sawgrass logo']];
 function iywBuildSliders(){const box=$('iywSliders');box.innerHTML='';IYW_SLIDERS.forEach(([k,label])=>{const row=document.createElement('div');row.className='sl';
-  row.innerHTML=`<span>${label}</span><input type="range" id="iyw-size-${k}" min="50" max="200" step="5" aria-label="${label} size"><output>${Q.scale[k]}%</output>`;
+  row.innerHTML=`<span>${label}</span><input type="range" id="iyw-size-${k}" min="25" max="250" step="1" aria-label="${label} size"><output>${Q.scale[k]}%</output>`;
   const i=row.querySelector('input'),o=row.querySelector('output');i.value=Q.scale[k];i.addEventListener('input',()=>{Q.scale[k]=Number(i.value);o.textContent=i.value+'%';iywChanged()});row.appendChild(wsel(Q,k,label,iywChanged));box.appendChild(row)})}
 iywBuildSliders();iywBuildList();
 $('iywResetSizes').addEventListener('click',()=>{Object.keys(Q.scale).forEach(k=>Q.scale[k]=100);Object.assign(Q.w,{quote:700,attr:400});iywBuildSliders();iywChanged()});
@@ -860,7 +933,7 @@ function bcRenderSlide(canvas,i,pano){
 function bcDraw(){
   const pano=bcRenderPano(true);const pv=$('bcPreviews');pv.innerHTML='';
   for(let i=0;i<4;i++){const fig=document.createElement('figure');const c=document.createElement('canvas');c.setAttribute('aria-label',`Slide ${i+1}`);fig.appendChild(c);
-    const cap=document.createElement('figcaption');cap.textContent=`Slide ${i+1}`;fig.appendChild(cap);pv.appendChild(fig);bcRenderSlide(c,i,pano)}
+    const cap=document.createElement('figcaption');cap.textContent=`Slide ${i+1}`;fig.appendChild(cap);pv.appendChild(fig);bcRenderSlide(c,i,pano);previewOverlays(c,null)}
 }
 function bcSync(){
   document.querySelectorAll('#bcSwatches .sw').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.id===B.grad)));
@@ -903,7 +976,7 @@ GRADS.forEach(g=>{const b=document.createElement('button');b.type='button';b.cla
   b.addEventListener('click',()=>{B.grad=g.id;bcChanged()});$('bcSwatches').appendChild(b)});
 const BC_SLIDERS=[['mark','Logomark'],['head','Headlines'],['body','Body lines'],['gfx','Graphics']];
 function bcBuildSliders(){const box=$('bcSliders');box.innerHTML='';BC_SLIDERS.forEach(([k,label])=>{const row=document.createElement('div');row.className='sl';
-  row.innerHTML=`<span>${label}</span><input type="range" id="bc-size-${k}" min="50" max="200" step="5" aria-label="${label} size"><output>${B.scale[k]}%</output>`;
+  row.innerHTML=`<span>${label}</span><input type="range" id="bc-size-${k}" min="25" max="250" step="1" aria-label="${label} size"><output>${B.scale[k]}%</output>`;
   const i=row.querySelector('input'),o=row.querySelector('output');i.value=B.scale[k];i.addEventListener('input',()=>{B.scale[k]=Number(i.value);o.textContent=i.value+'%';bcChanged()});row.appendChild(wsel(B,k,label,bcChanged));box.appendChild(row)})}
 bcBuildSlides();bcBuildSliders();
 $('bcResetSizes').addEventListener('click',()=>{Object.keys(B.scale).forEach(k=>B.scale[k]=100);Object.assign(B.w,{head:500,body:400});bcBuildSliders();bcChanged()});
@@ -931,57 +1004,71 @@ async function bcLoadStored(){
 /* ================= Fast Promo (9:16 Story + 4:5 feed from one set of inputs) ================= */
 const FP_BGS=[{id:'s-ink',name:'Black',c:'#101921'},{id:'s-white',name:'White',c:'#FFFFFF'},{id:'s-lgray',name:'Light gray',c:'#DAD8D9'},
   {id:'s-pink',name:'Pink',c:'#E04584'},{id:'s-orange',name:'Orange',c:'#FF7F39'},...GRADS.map(g=>Object.assign({},g,{id:'g-'+g.id}))];
-const FP_DEFAULT={eyebrow:'Limited-Time Savings',caps:true,lead:'Up To',offer:'$100\nOff',caption:'Sublijet Standard Bundles',
+const FP_DEFAULT={link:{on:false,y:80,w:48},gap:{mark:0,eyebrow:0,lead:0,offer:0,caption:0},f169:false,eyebrow:'Limited-Time Savings',caps:true,lead:'Up To',offer:'$100\nOff',caption:'Sublijet Standard Bundles',
   bg:'s-ink',accent:'grad',text:'auto',mark:'brand',f916:true,f45:true,nudge:0,example:true,
   scale:{mark:100,eyebrow:100,lead:100,offer:100,caption:100,img:100},w:{eyebrow:500,lead:500,offer:700,caption:400}};
-S.fp=Object.assign(structuredClone(FP_DEFAULT),S.fp||{});S.fp.scale=Object.assign({},FP_DEFAULT.scale,S.fp.scale||{});S.fp.w=Object.assign({},FP_DEFAULT.w,S.fp.w||{});
+S.fp=Object.assign(structuredClone(FP_DEFAULT),S.fp||{});S.fp.gap=Object.assign({},FP_DEFAULT.gap,S.fp.gap||{});S.fp.scale=Object.assign({},FP_DEFAULT.scale,S.fp.scale||{});S.fp.w=Object.assign({},FP_DEFAULT.w,S.fp.w||{});
 const FPS=S.fp;const fpImgs={product:null};
 /* Layout per format. 4:5 matches the Canva promo (scaled from 960 × 1200); 9:16 keeps clear of Story UI at top and bottom. */
-const FP_FORMATS=[{id:'9x16',label:'9:16',H:1920,top:300,bottom:300,cls:'f916',key:'f916',k:1.18},{id:'4x5',label:'4:5',H:1350,top:128,bottom:100,cls:'f45',key:'f45'}];
+const FP_FORMATS=[{id:'9x16',label:'9:16',W:1080,H:1920,top:300,bottom:300,cls:'f916',key:'f916',k:1.18},{id:'4x5',label:'4:5',W:1080,H:1350,top:128,bottom:100,cls:'f45',key:'f45'},{id:'16x9',label:'16:9',W:1920,H:1080,top:0,bottom:0,cls:'f169',key:'f169',land:true}];
 function fpLum(hex){const n=parseInt(hex.slice(1),16),r=n>>16&255,g=n>>8&255,b=n&255;return (0.299*r+0.587*g+0.114*b)/255}
 function fpBg(){return FP_BGS.find(b=>b.id===FPS.bg)||FP_BGS[0]}
 function fpIsLight(){const b=fpBg();if(b.c)return fpLum(b.c)>0.6;if(b.img)return false;return (fpLum(b.a)+fpLum(b.b))/2>0.72}
 function fpTextColor(){return FPS.text!=='auto'?FPS.text:(fpIsLight()?'#101921':'#FFFFFF')}
 function fpRender(canvas,fmt,guide){
-  const W=1080,H=fmt.H;canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');ctx.imageSmoothingQuality='high';
+  const W=fmt.W||1080,H=fmt.H;canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');ctx.imageSmoothingQuality='high';
   const bg=fpBg();
   if(bg.c){ctx.fillStyle=bg.c;ctx.fillRect(0,0,W,H)}
   else if(bg.img&&imgs[bg.img]){const im=imgs[bg.img],k=Math.max(W/im.width,H/im.height);ctx.drawImage(im,(W-im.width*k)/2,(H-im.height*k)/2,im.width*k,im.height*k)}
   else{const lg=ctx.createLinearGradient(0,0,0,H);lg.addColorStop(0,bg.a);lg.addColorStop(1,bg.b);ctx.fillStyle=lg;ctx.fillRect(0,0,W,H)}
-  const K=fmt.k||1,sc=k=>(FPS.scale[k]??100)/100*K,tc=fpTextColor();ctx.textAlign='center';ctx.textBaseline='top';
-  let y=fmt.top;
-  // logomark (template: 67 px wide)
-  if(FPS.mark!=='off'&&imgs.mark){
-    const w=67*sc('mark'),h=w*imgs.mark.height/imgs.mark.width;
-    const off=document.createElement('canvas');off.width=Math.ceil(w);off.height=Math.ceil(h);const ox=off.getContext('2d');ox.drawImage(imgs.mark,0,0,w,h);ox.globalCompositeOperation='source-in';
-    if(FPS.mark==='brand'){const g=ox.createLinearGradient(0,0,w,0);g.addColorStop(0.35,'#E04584');g.addColorStop(0.65,'#FF7F39');ox.fillStyle=g}else ox.fillStyle=FPS.mark;
-    ox.fillRect(0,0,w,h);ctx.drawImage(off,W/2-w/2,y);y+=h+24;
+  const K=fmt.k||1,sc=k=>(FPS.scale[k]??100)/100*K,tc=fpTextColor(),gp=k=>Number(FPS.gap[k]||0);
+  ctx.textAlign='center';ctx.textBaseline='top';
+  // text column: centered for portrait; left half for 16:9
+  const land=!!fmt.land,cx=land?W*0.29:W/2,colW=land?W*0.5:960;
+  // ---- measure the stack ----
+  const parts=[];
+  let markW=0,markH=0;if(FPS.mark!=='off'&&imgs.mark){markW=67*sc('mark');markH=markW*imgs.mark.height/imgs.mark.width;parts.push({k:'mark',h:markH,after:24+gp('mark')})}
+  const eb=(FPS.caps?FPS.eyebrow.toUpperCase():FPS.eyebrow).trim();let es=45*sc('eyebrow');
+  if(eb){ctx.font=F(WT(FPS,'eyebrow',500),es);while(ctx.measureText(eb).width>colW&&es>16){es-=1;ctx.font=F(WT(FPS,'eyebrow',500),es)}parts.push({k:'eyebrow',h:es,after:es*0.5+gp('eyebrow')})}
+  const lead=FPS.lead.trim(),ls=60*sc('lead');if(lead)parts.push({k:'lead',h:ls,after:ls*0.25+gp('lead')});
+  const offer=String(FPS.offer||'').split('\n').map(l=>l.trim()).filter(Boolean);let os=225*sc('offer');ctx.font=F(WT(FPS,'offer',700),os);
+  while(offer.some(l=>ctx.measureText(l).width>colW+20)&&os>50){os-=4;ctx.font=F(WT(FPS,'offer',700),os)}
+  const step=os*0.91;if(offer.length)parts.push({k:'offer',h:offer.length*step,after:gp('offer')});
+  const cap=FPS.caption.trim(),cs=30*sc('caption');
+  // ---- place ----
+  let y,capY,boxTop,boxBot,boxL,boxR;
+  if(land){
+    const capH=cap?cs*1.2+30+gp('caption'):0,stackH=parts.reduce((t,p)=>t+p.h+p.after,0)+capH;
+    y=Math.max(60,(H-stackH)/2);boxL=W*0.56;boxR=W-80;boxTop=100;boxBot=H-100;
+  }else{
+    y=fmt.top;capY=H-fmt.bottom-(cap?cs*1.2:0);boxL=60;boxR=W-60;
   }
-  // eyebrow
-  const eb=(FPS.caps?FPS.eyebrow.toUpperCase():FPS.eyebrow).trim();
-  if(eb){let s=45*sc('eyebrow');ctx.font=F(WT(FPS,'eyebrow',500),s);while(ctx.measureText(eb).width>960&&s>20){s-=1;ctx.font=F(WT(FPS,'eyebrow',500),s)}ctx.fillStyle=tc;ctx.fillText(eb,W/2,y);y+=s*1.5}
-  // lead-in + offer share the accent color (or one gradient across both)
-  const lead=FPS.lead.trim(),offer=String(FPS.offer||'').split('\n').map(l=>l.trim()).filter(Boolean);
-  const ls=60*sc('lead');let os=225*sc('offer');ctx.font=F(WT(FPS,'offer',700),os);
-  while(offer.some(l=>ctx.measureText(l).width>980)&&os>60){os-=4;ctx.font=F(WT(FPS,'offer',700),os)}
-  const step=os*0.91,accTop=y,accH=(lead?ls*1.25:0)+offer.length*step;
-  let fill=FPS.accent;if(FPS.accent==='grad'){const g=ctx.createLinearGradient(0,accTop,0,accTop+accH);g.addColorStop(0,'#E04584');g.addColorStop(1,'#FF7F39');fill=g}
-  ctx.fillStyle=fill;
-  if(lead){ctx.font=F(WT(FPS,'lead',500),ls);ctx.fillText(lead,W/2,y);y+=ls*1.25}
-  ctx.font=F(WT(FPS,'offer',700),os);for(const l of offer){ctx.fillText(l,W/2,y-os*0.08);y+=step}
-  // caption pinned to the bottom, product image fills the space between
-  const cap=FPS.caption.trim(),cs=30*sc('caption');const capY=H-fmt.bottom-(cap?cs*1.2:0);
-  if(cap){ctx.font=F(WT(FPS,'caption',400),cs);ctx.fillStyle=tc;ctx.fillText(cap,W/2,capY)}
-  const boxTop=y+20,boxBot=capY-18,boxH=Math.max(60,boxBot-boxTop);
-  if(fpImgs.product){const im=fpImgs.product,k=Math.min(920*sc('img')/K/im.width,boxH*sc('img')/K/im.height),w=im.width*k,h=im.height*k;
-    ctx.drawImage(im,W/2-w/2,boxTop+(boxH-h)/2+FPS.nudge,w,h)}
-  else if(guide){ctx.save();ctx.setLineDash([16,12]);ctx.lineWidth=4;ctx.strokeStyle=fpIsLight()?'rgba(16,25,33,.45)':'rgba(255,255,255,.55)';rr(ctx,90,boxTop,900,boxH,24);ctx.stroke();
-    ctx.font=F(500,34);ctx.textBaseline='middle';ctx.fillStyle=ctx.strokeStyle;ctx.fillText('Upload a product cut-out',W/2,boxTop+boxH/2);ctx.restore()}
+  for(const p of parts){
+    if(p.k==='mark'){const off=document.createElement('canvas');off.width=Math.ceil(markW);off.height=Math.ceil(markH);const ox=off.getContext('2d');ox.drawImage(imgs.mark,0,0,markW,markH);ox.globalCompositeOperation='source-in';
+      if(FPS.mark==='brand'){const g=ox.createLinearGradient(0,0,markW,0);g.addColorStop(0.35,'#E04584');g.addColorStop(0.65,'#FF7F39');ox.fillStyle=g}else ox.fillStyle=FPS.mark;ox.fillRect(0,0,markW,markH);ctx.drawImage(off,cx-markW/2,y)}
+    if(p.k==='eyebrow'){ctx.font=F(WT(FPS,'eyebrow',500),es);ctx.fillStyle=tc;ctx.fillText(eb,cx,y)}
+    if(p.k==='lead'||p.k==='offer'){
+      if(!p.fill){const accTop=y,accH=parts.filter(q=>q.k==='lead'||q.k==='offer').reduce((t,q)=>t+q.h+(q.k==='lead'?q.after:0),0);
+        let f=FPS.accent;if(f==='grad'){const g=ctx.createLinearGradient(0,accTop,0,accTop+accH);g.addColorStop(0,'#E04584');g.addColorStop(1,'#FF7F39');f=g}
+        parts.forEach(q=>{if(q.k==='lead'||q.k==='offer')q.fill=f})}
+      ctx.fillStyle=p.fill;
+      if(p.k==='lead'){ctx.font=F(WT(FPS,'lead',500),ls);ctx.fillText(lead,cx,y)}
+      else{ctx.font=F(WT(FPS,'offer',700),os);let yy=y;for(const l of offer){ctx.fillText(l,cx,yy-os*0.08);yy+=step}}
+    }
+    y+=p.h+p.after;
+  }
+  if(land){if(cap){y+=30+gp('caption');ctx.font=F(WT(FPS,'caption',400),cs);ctx.fillStyle=tc;ctx.fillText(cap,cx,y)}}
+  else{boxTop=y+20;boxBot=capY-18-gp('caption');if(cap){ctx.font=F(WT(FPS,'caption',400),cs);ctx.fillStyle=tc;ctx.fillText(cap,cx,capY)}}
+  const boxW=boxR-boxL,boxH=Math.max(60,boxBot-boxTop);
+  if(fpImgs.product){const im=fpImgs.product,k=Math.min(Math.min(boxW,920)*sc('img')/K/im.width,boxH*sc('img')/K/im.height),w=im.width*k,h=im.height*k;
+    ctx.drawImage(im,boxL+(boxW-w)/2,boxTop+(boxH-h)/2+FPS.nudge,w,h)}
+  else if(guide){ctx.save();ctx.setLineDash([16,12]);ctx.lineWidth=4;ctx.strokeStyle=fpIsLight()?'rgba(16,25,33,.45)':'rgba(255,255,255,.55)';rr(ctx,boxL+30,boxTop,boxW-60,boxH,24);ctx.stroke();
+    ctx.font=F(500,34);ctx.textBaseline='middle';ctx.fillStyle=ctx.strokeStyle;ctx.fillText('Upload a product cut-out',boxL+boxW/2,boxTop+boxH/2);ctx.restore()}
 }
 function fpDraw(){const pv=$('fpPreviews');pv.innerHTML='';const fs=FP_FORMATS.filter(f=>FPS[f.key]);
   if(!fs.length){pv.innerHTML='<p class="empty">Turn on at least one format.</p>';return}
   fs.forEach(f=>{const fig=document.createElement('figure');fig.className=f.cls;const c=document.createElement('canvas');c.setAttribute('aria-label',`Promo at ${f.label}`);fig.appendChild(c);
-    const cap=document.createElement('figcaption');cap.textContent=`${f.label} · 1080×${f.H}`;fig.appendChild(cap);pv.appendChild(fig);fpRender(c,f,true)})}
+    const cap=document.createElement('figcaption');cap.textContent=`${f.label} · ${f.W}×${f.H}`;fig.appendChild(cap);pv.appendChild(fig);fpRender(c,f,true);previewOverlays(c,f.id==='9x16'?FPS.link:null)})}
 function fpSync(){
   document.querySelectorAll('#fpSwatches .sw').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.id===FPS.bg)));
   $('fpBgName').textContent=fpBg().name;$('fpExample').hidden=!FPS.example;$('fpImgClear').hidden=!fpImgs.product;$('fpNudgeVal').textContent=(FPS.nudge>0?'+':'')+FPS.nudge+' px';
@@ -992,18 +1079,23 @@ function fpSync(){
 }
 let fpRaf;function fpChanged(){fpSync();save();cancelAnimationFrame(fpRaf);fpRaf=requestAnimationFrame(fpDraw)}
 [['fpEyebrow','eyebrow'],['fpLead','lead'],['fpOffer','offer'],['fpCaption','caption']].forEach(([id,k])=>{const el=$(id);el.value=FPS[k];el.addEventListener('input',()=>{FPS[k]=el.value;FPS.example=false;fpChanged()})});
-[['fpCaps','caps'],['fpF916','f916'],['fpF45','f45']].forEach(([id,k])=>{const el=$(id);el.checked=!!FPS[k];el.addEventListener('change',()=>{FPS[k]=el.checked;fpChanged()})});
+[['fpCaps','caps'],['fpF916','f916'],['fpF45','f45'],['fpF169','f169']].forEach(([id,k])=>{const el=$(id);el.checked=!!FPS[k];el.addEventListener('change',()=>{FPS[k]=el.checked;fpChanged()})});
 [['fpAccent','accent'],['fpText','text'],['fpMark','mark']].forEach(([id,k])=>{const el=$(id);el.value=FPS[k];el.addEventListener('change',()=>{FPS[k]=el.value;fpChanged()})});
 $('fpNudge').value=FPS.nudge;$('fpNudge').addEventListener('input',e=>{FPS.nudge=Number(e.target.value);fpChanged()});
 FP_BGS.forEach(g=>{const b=document.createElement('button');b.type='button';b.className='sw'+(g.c?' solid':'');b.title=g.name;b.setAttribute('aria-label',g.name);
   b.style.background=g.c?g.c:g.img?`center/cover url(${ASSETS.vfbg})`:`linear-gradient(180deg,${g.a},${g.b})`;b.dataset.id=g.id;
   b.addEventListener('click',()=>{FPS.bg=g.id;fpChanged()});$('fpSwatches').appendChild(b)});
+const FP_GAPS=[['mark','Logomark → eyebrow'],['eyebrow','Eyebrow → lead-in'],['lead','Lead-in → offer'],['offer','Offer → product'],['caption','Product → caption']];
+function fpBuildGaps(){const box=$('fpGaps');box.innerHTML='';FP_GAPS.forEach(([k,label])=>{const row=document.createElement('div');row.className='sl';
+  row.innerHTML=`<span>${label}</span><input type="range" min="-80" max="240" step="1" aria-label="${label} spacing"><output>${FPS.gap[k]} px</output><span></span>`;
+  const i=row.querySelector('input'),o=row.querySelector('output');i.value=FPS.gap[k];i.addEventListener('input',()=>{FPS.gap[k]=Number(i.value);o.textContent=i.value+' px';fpChanged()});box.appendChild(row)})}
 const FP_SLIDERS=[['mark','Logomark'],['eyebrow','Eyebrow'],['lead','Lead-in'],['offer','Offer'],['caption','Caption'],['img','Product image']];
 function fpBuildSliders(){const box=$('fpSliders');box.innerHTML='';FP_SLIDERS.forEach(([k,label])=>{const row=document.createElement('div');row.className='sl';
-  row.innerHTML=`<span>${label}</span><input type="range" id="fp-size-${k}" min="50" max="200" step="5" aria-label="${label} size"><output>${FPS.scale[k]}%</output>`;
+  row.innerHTML=`<span>${label}</span><input type="range" id="fp-size-${k}" min="25" max="250" step="1" aria-label="${label} size"><output>${FPS.scale[k]}%</output>`;
   const i=row.querySelector('input'),o=row.querySelector('output');i.value=FPS.scale[k];i.addEventListener('input',()=>{FPS.scale[k]=Number(i.value);o.textContent=i.value+'%';fpChanged()});
   row.appendChild(wsel(FPS,k,label,fpChanged));box.appendChild(row)})}
-fpBuildSliders();
+fpBuildSliders();fpBuildGaps();
+$('fpResetGaps')&&$('fpResetGaps').addEventListener('click',()=>{Object.keys(FPS.gap).forEach(k=>FPS.gap[k]=0);fpBuildGaps();fpChanged()});
 $('fpResetSizes').addEventListener('click',()=>{Object.keys(FPS.scale).forEach(k=>FPS.scale[k]=100);FPS.w=structuredClone(FP_DEFAULT.w);FPS.nudge=0;$('fpNudge').value=0;fpBuildSliders();fpChanged()});
 $('fpImgBtn').addEventListener('click',()=>$('fpImgFile').click());
 $('fpImgFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;const url=await readFile(f);fpImgs.product=await loadImg(url);bcIdb.set('fpImg',url);e.target.value='';fpChanged()});
@@ -1051,7 +1143,8 @@ async function fpLoadStored(){const p=await bcIdb.get('fpImg');if(p)fpImgs.produ
   changed(true);
   if(P.logo)imgs.prLogo=await loadImg(P.logo);
   imgs.sawgrass=await loadImg(ASSETS.sawgrass);prSync();
-  if(Hh.img)imgs.holImg=await loadImg(Hh.img);holSync();iywSync();await bcLoadStored();await fpLoadStored();
+  if(Hh.img)imgs.holImg=await loadImg(Hh.img);holSync();iywSync();tsLinkUI();guideToggles();
+  linkControls('prLink',()=>P.link,()=>{save();prDraw()});linkControls('holLink',()=>Hh.link,()=>{save();holDraw()});linkControls('iywLink',()=>Q.link,()=>{save();iywDraw()});linkControls('fpLink',()=>FPS.link,()=>{save();fpDraw()});await bcLoadStored();await fpLoadStored();
   try{const fl=await bcIdb.get('fonts');if(fl&&fl.length)await applyFonts(fl)}catch(e){}
   show(['#stories','#tradeshow','#pr','#holiday','#words','#blog','#fast'].includes(location.hash)?location.hash.slice(1):'home');
   // Only edits made after the page has loaded count as changes worth syncing.

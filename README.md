@@ -1,4 +1,4 @@
-# Sawgrass Story Builder
+# Sawgrass Asset Builder
 
 Builds on-brand Instagram content for Sawgrass: 9:16 Stories (Tradeshow, PR Hit, Holiday Closure, In Your Words) at 1080 × 1920, and the 4-slide Blog Carousel at 1080 × 1350. Everything renders in the browser and exports as PNGs.
 

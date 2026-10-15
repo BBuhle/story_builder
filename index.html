@@ -65,7 +65,9 @@ input:focus-visible,select:focus-visible,button:focus-visible,.sw:focus-visible{
 .mini input{accent-color:var(--accent)}
 .tok{font-family:var(--mono);font-size:11px;color:var(--faint)}
 .sliders{display:flex;flex-direction:column;gap:8px}
-.sl{display:grid;grid-template-columns:96px minmax(0,1fr) 40px 88px;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--muted)}
+.sl{display:grid;grid-template-columns:minmax(0,1fr) 48px 92px;grid-template-areas:"l v w" "r r r";align-items:center;column-gap:8px;row-gap:2px;font-size:13px;font-weight:600;color:var(--muted);padding-block:4px;border-bottom:1px solid var(--line)}
+.sl:last-child{border-bottom:0}
+.sl>span:first-child{grid-area:l}.sl>input{grid-area:r}.sl>output{grid-area:v}.sl>select,.sl>span:last-child:not(:first-child){grid-area:w}
 .wsel{font:inherit;font-size:12px;font-weight:600;color:var(--fg);background:var(--field);border:1px solid var(--line);border-radius:6px;padding:4px 6px;min-width:0}
 .sl input{width:100%;accent-color:var(--accent);margin:0}
 .sl output{font-family:var(--mono);font-size:11px;color:var(--faint);text-align:right;font-variant-numeric:tabular-nums}
@@ -124,7 +126,9 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
 .fprow{align-items:flex-start}
 .fprow figure.f916 canvas{height:min(70vh,700px);width:auto}
 .fprow figure.f45 canvas{height:calc(min(70vh,700px) * 0.703);width:auto}
-@media (max-width:640px){.fprow figure.f916 canvas,.fprow figure.f45 canvas{height:auto;width:min(320px,100%)}}
+.fprow{flex-wrap:wrap}
+.fprow figure.f169 canvas{width:min(100%,640px);height:auto}
+@media (max-width:640px){.fprow figure.f169 canvas,.fprow figure.f916 canvas,.fprow figure.f45 canvas{height:auto;width:min(320px,100%)}}
 .sw.solid{border:2px solid var(--line)}
 
 .mini-btn{font-size:12px;padding:3px 9px;text-transform:none;letter-spacing:0;font-family:var(--ui)}
@@ -173,6 +177,13 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
 .stepnav{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .stepnav .btn{white-space:nowrap}
 .editcol .actions{display:flex;gap:8px;flex-wrap:wrap}
+.shapebox{display:flex;flex-direction:column;gap:6px}
+.colorrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.colorrow .dot{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);cursor:pointer;padding:0}
+.colorrow .dot[aria-pressed=true]{outline:2px solid var(--fg);outline-offset:2px}
+.colorrow input[type=color]{width:30px;height:28px;border:1px solid var(--line);border-radius:6px;background:none;padding:0;cursor:pointer}
+.steps .tab.done span:first-child::after{content:' ✓';color:var(--accent)}
+.guidetoggle{font-weight:600}
 </style>
 </head>
 <body>
@@ -197,7 +208,7 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
       <span class="state ready">Ready</span>
     </button>
     <button type="button" class="tile cat" data-go="fast">
-      <span class="thumb t-fast"><span class="tt">9:16 + 4:5</span></span>
+      <span class="thumb t-fast"><span class="tt">9:16 · 4:5 · 16:9</span></span>
       <span class="tmeta"><b>Fast Promos</b><span>One offer, exported as a Story and a feed post together.</span></span>
       <span class="state ready">Ready</span>
     </button>
@@ -235,8 +246,8 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
       <span class="state ready">Ready</span>
     </button>
     <button type="button" class="tile" data-go="holiday">
-      <span class="thumb t-hol"><span class="tt">Holiday Hours</span></span>
-      <span class="tmeta"><b>Holiday Closure Stories</b><span>Office and support closure notices from a set of dates.</span></span>
+      <span class="thumb t-hol"><span class="tt">Heads Up</span></span>
+      <span class="tmeta"><b>Story Alert Templates</b><span>Holiday hours, closures, shipping updates and other customer notices.</span></span>
       <span class="state ready">Ready</span>
     </button>
     <button type="button" class="tile" data-go="words">
@@ -286,7 +297,7 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
         <button class="btn" type="button" id="logoClear" hidden>Remove</button>
         <span class="hint" id="logoName">No logo yet. The show name stands in for it.</span>
       </div>
-      <label class="mini"><input type="checkbox" id="panelOn"> Put the show logo on a white panel</label>
+      <div id="logoShapeBox" class="shapebox"></div>
       <div class="row">
         <label class="f">Location<input id="city" type="text" autocomplete="off"></label>
         <label class="f">Booth<input id="booth" type="text" autocomplete="off"></label>
@@ -310,7 +321,7 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
           <button class="btn" type="button" id="dealerLogoClear" hidden>Remove</button>
           <span class="hint" id="dealerLogoName"></span>
         </div>
-        <label class="mini"><input type="checkbox" id="dealerPanel"> Put the dealer logo on a white panel</label>
+        <div id="dealerShapeBox" class="shapebox"></div>
       </div>
     </section>
 
@@ -359,9 +370,13 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
         <button class="btn" type="button" data-step-go="setup">Edit show details</button>
       </section>
       <section class="sec">
+        <h2>Link sticker</h2>
+        <div id="tsLink"></div>
+      </section>
+      <section class="sec">
         <h2>Size and weight <button class="btn mini-btn" type="button" id="resetSizes">Reset</button></h2>
         <div id="sliders" class="sliders"></div>
-        <p class="hint">Applies to every story in the package.</p>
+        <p class="hint">Changes apply to this story and the ones after it. Stories you have already moved past keep their own settings.</p>
       </section>
     </aside>
 
@@ -377,6 +392,7 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
             <p class="hint" id="seNote"></p>
             <button class="btn" type="button" id="resetCopy">Reset all copy to defaults</button>
           </section>
+          <div data-guides></div>
           <div class="stepnav">
             <button class="btn lg" type="button" id="tsPrev">← Back</button>
             <button class="btn primary lg" type="button" id="tsNext">Next →</button>
@@ -433,6 +449,10 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
     </section>
 
     <section class="sec">
+      <h2>Link sticker</h2>
+      <div id="prLink"></div>
+    </section>
+    <section class="sec">
       <h2>Style</h2>
       <div class="swatches" id="prSwatches" role="group" aria-label="Background gradient"></div>
       <p class="swname" id="prSwName"></p>
@@ -442,7 +462,6 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
       <p class="warn" id="prInkWarn" hidden>The brand guide calls for white type on colored backgrounds. Black works on the lighter gradients but is off-guide.</p>
       <label class="mini"><input type="checkbox" id="prGlow"> Soft white glow at the top</label>
       <label class="mini"><input type="checkbox" id="prMark"> Sawgrass logo and divider</label>
-      <label class="mini"><input type="checkbox" id="prGuide"> Show Read More sticker zone in preview</label>
     </section>
 
     <section class="sec">
@@ -455,7 +474,7 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
   <main class="main">
     <div class="bar">
       <span class="status" id="prStatus" role="status"></span>
-      <div class="actions">
+      <div class="actions"><span data-guides></span>
         <button class="btn primary" type="button" id="prExport">Download stories</button>
       </div>
     </div>
@@ -468,33 +487,36 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
   <header class="top">
     <div>
       <button type="button" class="btn back" data-back="stories">← Stories</button>
-      <h1>Holiday Closure Stories</h1>
-      <p>Pick a layout, set the dates and the closure copy writes itself. Every line stays editable.</p>
+      <h1>Story Alert Templates</h1>
+      <p>General customer notices: holiday hours, closures, shipping updates and anything else. Pick a template, set the dates and every line stays editable.</p>
     </div>
     <p class="legend">1080 × 1920 PNG · Brand Guide 2026</p>
   </header>
 
   <aside class="rail">
     <section class="sec">
-      <h2>Layout</h2>
+      <h2>Template</h2>
+      <label class="f">Start from
+        <select id="holPreset"></select>
+      </label>
       <div class="checks" id="holLayouts" role="radiogroup" aria-label="Layout">
-        <label class="ck"><input type="radio" name="holLayout" value="hours"> Holiday Hours <small>text</small></label>
-        <label class="ck"><input type="radio" name="holLayout" value="closure"> Holiday Closure <small>with photo</small></label>
+        <label class="ck"><input type="radio" name="holLayout" value="hours"> Text only</label>
+        <label class="ck"><input type="radio" name="holLayout" value="closure"> With photo</label>
       </div>
       <label class="f">Headline<input id="holHead" type="text" autocomplete="off"></label>
     </section>
 
     <section class="sec">
-      <h2>Closure <span class="tok">{team} {closed} {return}</span></h2>
-      <label class="f">Who is out
+      <h2>Who and when <span class="tok">{team} {closed} {return}</span></h2>
+      <label class="f">Who it is about
         <select id="holTeamPick">
-          <option>Our Global Care Teams</option><option>Our US Support Team</option><option>Our US Offices</option><option>Our EU Support Team</option><option value="custom">Custom…</option>
+          <option>Our Global Care Teams</option><option>Our US Support Team</option><option>Our US Offices</option><option>Our EU Support Team</option><option>Our team</option><option>Our warehouse</option><option value="custom">Custom…</option>
         </select>
       </label>
       <input id="holTeam" type="text" autocomplete="off" aria-label="Custom team name" hidden>
       <div class="row">
-        <label class="f">Closed from<input id="holStart" type="date"></label>
-        <label class="f">Closed through<input id="holEnd" type="date"></label>
+        <label class="f">Starts<input id="holStart" type="date"></label>
+        <label class="f">Ends<input id="holEnd" type="date"></label>
       </div>
       <label class="f">Back on<input id="holBack" type="date"></label>
       <p class="hint" id="holDates"></p>
@@ -502,9 +524,9 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
 
     <section class="sec">
       <h2>Copy</h2>
-      <label class="f">Closed line<input id="holP1" type="text" autocomplete="off"></label>
-      <label class="f">Return line<input id="holP2" type="text" autocomplete="off"></label>
-      <label class="f" id="holP3Wrap">Resources line<input id="holP3" type="text" autocomplete="off"></label>
+      <label class="f">Line 1<input id="holP1" type="text" autocomplete="off"></label>
+      <label class="f">Line 2<input id="holP2" type="text" autocomplete="off"></label>
+      <label class="f" id="holP3Wrap">Line 3<input id="holP3" type="text" autocomplete="off"></label>
       <label class="f" id="holSignWrap">Sign-off<input id="holSign" type="text" autocomplete="off"></label>
       <button class="btn" type="button" id="holResetCopy">Reset copy to defaults</button>
     </section>
@@ -519,6 +541,10 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
       <p class="hint">A cut-out product shot (transparent PNG) works best. It sits at the bottom and can bleed off the edges.</p>
     </section>
 
+    <section class="sec">
+      <h2>Link sticker</h2>
+      <div id="holLink"></div>
+    </section>
     <section class="sec">
       <h2>Style</h2>
       <div class="swatches" id="holSwatches" role="group" aria-label="Background gradient"></div>
@@ -536,7 +562,7 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
   <main class="main">
     <div class="bar">
       <span class="status" id="holStatus" role="status"></span>
-      <div class="actions"><button class="btn primary" type="button" id="holExport">Download story</button></div>
+      <div class="actions"><span data-guides></span><button class="btn primary" type="button" id="holExport">Download story</button></div>
     </div>
     <div class="stagewrap"><div class="previews" id="holPreviews"></div></div>
   </main>
@@ -560,6 +586,10 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
     </section>
 
     <section class="sec">
+      <h2>Link sticker</h2>
+      <div id="iywLink"></div>
+    </section>
+    <section class="sec">
       <h2>Style</h2>
       <div class="swatches" id="iywSwatches" role="group" aria-label="Background gradient"></div>
       <p class="swname" id="iywSwName"></p>
@@ -578,7 +608,7 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
   <main class="main">
     <div class="bar">
       <div class="tabs" id="iywTabs" role="tablist" aria-label="Preview quote"></div>
-      <div class="actions">
+      <div class="actions"><span data-guides></span>
         <span class="status" id="iywStatus" role="status"></span>
         <button class="btn primary" type="button" id="iywExport">Download stories</button>
       </div>
@@ -642,7 +672,7 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
   <main class="main">
     <div class="bar">
       <span class="status" id="bcStatus" role="status"></span>
-      <div class="actions"><button class="btn primary" type="button" id="bcExport">Download 4 slides</button></div>
+      <div class="actions"><span data-guides></span><button class="btn primary" type="button" id="bcExport">Download 4 slides</button></div>
     </div>
     <div class="stagewrap"><div class="bcrow" id="bcPreviews"></div></div>
     <p class="legend">Slides sit edge to edge here so you can check the photo runs across them. Exports are four separate files, numbered in carousel order.</p>
@@ -654,9 +684,9 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
     <div>
       <button type="button" class="btn back" data-back="home">← Asset Builder</button>
       <h1>Fast Promo</h1>
-      <p>One offer, rendered as a 9:16 Story and a 4:5 feed post at the same time.</p>
+      <p>One offer, rendered as a 9:16 Story, a 4:5 feed post and a 16:9 landscape at the same time.</p>
     </div>
-    <p class="legend">1080 × 1920 and 1080 × 1350 PNG · Brand Guide 2026</p>
+    <p class="legend">9:16, 4:5 and 16:9 PNG · Brand Guide 2026</p>
   </header>
 
   <aside class="rail">
@@ -700,11 +730,22 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
     </section>
 
     <section class="sec">
+      <h2>Link sticker</h2>
+      <div id="fpLink"></div>
+    </section>
+    <section class="sec">
       <h2>Formats</h2>
       <div class="checks">
         <label class="ck"><input type="checkbox" id="fpF916"> 9:16 <small>1080×1920</small></label>
         <label class="ck"><input type="checkbox" id="fpF45"> 4:5 <small>1080×1350</small></label>
+        <label class="ck"><input type="checkbox" id="fpF169"> 16:9 <small>1920×1080</small></label>
       </div>
+    </section>
+
+    <section class="sec">
+      <h2>Spacing <button class="btn mini-btn" type="button" id="fpResetGaps">Reset</button></h2>
+      <div id="fpGaps" class="sliders"></div>
+      <p class="hint">Adds or removes space between elements, in pixels at full size.</p>
     </section>
 
     <section class="sec">
@@ -716,7 +757,7 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
   <main class="main">
     <div class="bar">
       <span class="status" id="fpStatus" role="status"></span>
-      <div class="actions"><button class="btn primary" type="button" id="fpExport">Download promo</button></div>
+      <div class="actions"><span data-guides></span><button class="btn primary" type="button" id="fpExport">Download promo</button></div>
     </div>
     <div class="stagewrap"><div class="previews fprow" id="fpPreviews"></div></div>
   </main>
