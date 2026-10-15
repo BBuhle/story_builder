@@ -362,7 +362,7 @@ async function applyFonts(list){let n=0;
   if(n){fontFamily=FONT_SET;const ws=[...new Set(list.map(f=>f.w))].sort().map(w=>({300:'Light',400:'Book',500:'Medium',700:'Bold'})[w]).join(', ');
     $('fontStatus').textContent=`Benton Sans loaded (${ws}). Remembered in this browser.`;$('fontClear').hidden=false;redrawAll()}
   return n}
-function redrawAll(){try{changed()}catch(e){}for(const f of [()=>prDraw(),()=>holDraw(),()=>iywDraw(),()=>bcDraw()]){try{f()}catch(e){}}}
+function redrawAll(){try{changed()}catch(e){}for(const f of [()=>prDraw(),()=>holDraw(),()=>iywDraw(),()=>bcDraw(),()=>fpDraw()]){try{f()}catch(e){}}}
 $('fontBtn').addEventListener('click',()=>$('fontFile').click());
 $('fontFile').addEventListener('change',async e=>{
   const list=[];for(const f of e.target.files){const nm=f.name.toLowerCase();list.push({w:nm.includes('bold')?700:nm.includes('medium')?500:(nm.includes('light')||nm.includes('thin'))?300:400,buf:await f.arrayBuffer()})}
@@ -431,7 +431,7 @@ async function exportStages(list){
 }
 /* views */
 try{document.querySelector('.t-trade').style.backgroundImage=`url(${ASSETS.vfbg})`}catch(e){}
-function show(view){['home','stories','tradeshow','pr','holiday','words','blog'].forEach(v=>$(v).hidden=v!==view);window.scrollTo(0,0);if(view==='tradeshow'){tsGoto('intro')}if(view==='pr')prDraw();if(view==='holiday')holDraw();if(view==='words')iywDraw();if(view==='blog')bcDraw()}
+function show(view){['home','stories','tradeshow','pr','holiday','words','blog','fast'].forEach(v=>$(v).hidden=v!==view);window.scrollTo(0,0);if(view==='tradeshow'){tsGoto('intro')}if(view==='pr')prDraw();if(view==='holiday')holDraw();if(view==='words')iywDraw();if(view==='blog')bcDraw();if(view==='fast')fpDraw()}
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{show(b.dataset.go);try{history.replaceState(null,'','#'+b.dataset.go)}catch(e){}}));
 document.querySelectorAll('[data-back]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.back;show(v);try{history.replaceState(null,'','#'+v)}catch(e){}}));
 /* Tradeshow journey: start → show details → review each story → finish and download */
@@ -928,6 +928,97 @@ async function bcLoadStored(){
   bcBuildSlides();bcSync();
 }
 
+/* ================= Fast Promo (9:16 Story + 4:5 feed from one set of inputs) ================= */
+const FP_BGS=[{id:'s-ink',name:'Black',c:'#101921'},{id:'s-white',name:'White',c:'#FFFFFF'},{id:'s-lgray',name:'Light gray',c:'#DAD8D9'},
+  {id:'s-pink',name:'Pink',c:'#E04584'},{id:'s-orange',name:'Orange',c:'#FF7F39'},...GRADS.map(g=>Object.assign({},g,{id:'g-'+g.id}))];
+const FP_DEFAULT={eyebrow:'Limited-Time Savings',caps:true,lead:'Up To',offer:'$100\nOff',caption:'Sublijet Standard Bundles',
+  bg:'s-ink',accent:'grad',text:'auto',mark:'brand',f916:true,f45:true,nudge:0,example:true,
+  scale:{mark:100,eyebrow:100,lead:100,offer:100,caption:100,img:100},w:{eyebrow:500,lead:500,offer:700,caption:400}};
+S.fp=Object.assign(structuredClone(FP_DEFAULT),S.fp||{});S.fp.scale=Object.assign({},FP_DEFAULT.scale,S.fp.scale||{});S.fp.w=Object.assign({},FP_DEFAULT.w,S.fp.w||{});
+const FPS=S.fp;const fpImgs={product:null};
+/* Layout per format. 4:5 matches the Canva promo (scaled from 960 × 1200); 9:16 keeps clear of Story UI at top and bottom. */
+const FP_FORMATS=[{id:'9x16',label:'9:16',H:1920,top:300,bottom:300,cls:'f916',key:'f916',k:1.18},{id:'4x5',label:'4:5',H:1350,top:128,bottom:100,cls:'f45',key:'f45'}];
+function fpLum(hex){const n=parseInt(hex.slice(1),16),r=n>>16&255,g=n>>8&255,b=n&255;return (0.299*r+0.587*g+0.114*b)/255}
+function fpBg(){return FP_BGS.find(b=>b.id===FPS.bg)||FP_BGS[0]}
+function fpIsLight(){const b=fpBg();if(b.c)return fpLum(b.c)>0.6;if(b.img)return false;return (fpLum(b.a)+fpLum(b.b))/2>0.72}
+function fpTextColor(){return FPS.text!=='auto'?FPS.text:(fpIsLight()?'#101921':'#FFFFFF')}
+function fpRender(canvas,fmt,guide){
+  const W=1080,H=fmt.H;canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');ctx.imageSmoothingQuality='high';
+  const bg=fpBg();
+  if(bg.c){ctx.fillStyle=bg.c;ctx.fillRect(0,0,W,H)}
+  else if(bg.img&&imgs[bg.img]){const im=imgs[bg.img],k=Math.max(W/im.width,H/im.height);ctx.drawImage(im,(W-im.width*k)/2,(H-im.height*k)/2,im.width*k,im.height*k)}
+  else{const lg=ctx.createLinearGradient(0,0,0,H);lg.addColorStop(0,bg.a);lg.addColorStop(1,bg.b);ctx.fillStyle=lg;ctx.fillRect(0,0,W,H)}
+  const K=fmt.k||1,sc=k=>(FPS.scale[k]??100)/100*K,tc=fpTextColor();ctx.textAlign='center';ctx.textBaseline='top';
+  let y=fmt.top;
+  // logomark (template: 67 px wide)
+  if(FPS.mark!=='off'&&imgs.mark){
+    const w=67*sc('mark'),h=w*imgs.mark.height/imgs.mark.width;
+    const off=document.createElement('canvas');off.width=Math.ceil(w);off.height=Math.ceil(h);const ox=off.getContext('2d');ox.drawImage(imgs.mark,0,0,w,h);ox.globalCompositeOperation='source-in';
+    if(FPS.mark==='brand'){const g=ox.createLinearGradient(0,0,w,0);g.addColorStop(0.35,'#E04584');g.addColorStop(0.65,'#FF7F39');ox.fillStyle=g}else ox.fillStyle=FPS.mark;
+    ox.fillRect(0,0,w,h);ctx.drawImage(off,W/2-w/2,y);y+=h+24;
+  }
+  // eyebrow
+  const eb=(FPS.caps?FPS.eyebrow.toUpperCase():FPS.eyebrow).trim();
+  if(eb){let s=45*sc('eyebrow');ctx.font=F(WT(FPS,'eyebrow',500),s);while(ctx.measureText(eb).width>960&&s>20){s-=1;ctx.font=F(WT(FPS,'eyebrow',500),s)}ctx.fillStyle=tc;ctx.fillText(eb,W/2,y);y+=s*1.5}
+  // lead-in + offer share the accent color (or one gradient across both)
+  const lead=FPS.lead.trim(),offer=String(FPS.offer||'').split('\n').map(l=>l.trim()).filter(Boolean);
+  const ls=60*sc('lead');let os=225*sc('offer');ctx.font=F(WT(FPS,'offer',700),os);
+  while(offer.some(l=>ctx.measureText(l).width>980)&&os>60){os-=4;ctx.font=F(WT(FPS,'offer',700),os)}
+  const step=os*0.91,accTop=y,accH=(lead?ls*1.25:0)+offer.length*step;
+  let fill=FPS.accent;if(FPS.accent==='grad'){const g=ctx.createLinearGradient(0,accTop,0,accTop+accH);g.addColorStop(0,'#E04584');g.addColorStop(1,'#FF7F39');fill=g}
+  ctx.fillStyle=fill;
+  if(lead){ctx.font=F(WT(FPS,'lead',500),ls);ctx.fillText(lead,W/2,y);y+=ls*1.25}
+  ctx.font=F(WT(FPS,'offer',700),os);for(const l of offer){ctx.fillText(l,W/2,y-os*0.08);y+=step}
+  // caption pinned to the bottom, product image fills the space between
+  const cap=FPS.caption.trim(),cs=30*sc('caption');const capY=H-fmt.bottom-(cap?cs*1.2:0);
+  if(cap){ctx.font=F(WT(FPS,'caption',400),cs);ctx.fillStyle=tc;ctx.fillText(cap,W/2,capY)}
+  const boxTop=y+20,boxBot=capY-18,boxH=Math.max(60,boxBot-boxTop);
+  if(fpImgs.product){const im=fpImgs.product,k=Math.min(920*sc('img')/K/im.width,boxH*sc('img')/K/im.height),w=im.width*k,h=im.height*k;
+    ctx.drawImage(im,W/2-w/2,boxTop+(boxH-h)/2+FPS.nudge,w,h)}
+  else if(guide){ctx.save();ctx.setLineDash([16,12]);ctx.lineWidth=4;ctx.strokeStyle=fpIsLight()?'rgba(16,25,33,.45)':'rgba(255,255,255,.55)';rr(ctx,90,boxTop,900,boxH,24);ctx.stroke();
+    ctx.font=F(500,34);ctx.textBaseline='middle';ctx.fillStyle=ctx.strokeStyle;ctx.fillText('Upload a product cut-out',W/2,boxTop+boxH/2);ctx.restore()}
+}
+function fpDraw(){const pv=$('fpPreviews');pv.innerHTML='';const fs=FP_FORMATS.filter(f=>FPS[f.key]);
+  if(!fs.length){pv.innerHTML='<p class="empty">Turn on at least one format.</p>';return}
+  fs.forEach(f=>{const fig=document.createElement('figure');fig.className=f.cls;const c=document.createElement('canvas');c.setAttribute('aria-label',`Promo at ${f.label}`);fig.appendChild(c);
+    const cap=document.createElement('figcaption');cap.textContent=`${f.label} · 1080×${f.H}`;fig.appendChild(cap);pv.appendChild(fig);fpRender(c,f,true)})}
+function fpSync(){
+  document.querySelectorAll('#fpSwatches .sw').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.id===FPS.bg)));
+  $('fpBgName').textContent=fpBg().name;$('fpExample').hidden=!FPS.example;$('fpImgClear').hidden=!fpImgs.product;$('fpNudgeVal').textContent=(FPS.nudge>0?'+':'')+FPS.nudge+' px';
+  const warns=[];const bg=fpBg();
+  if(FPS.accent==='grad'||FPS.accent==='#E04584'||FPS.accent==='#FF7F39'){if(bg.c==='#E04584'||bg.c==='#FF7F39'||(!bg.c))warns.push('The offer color is close to the background. Switch the offer to white or the background to black.')}
+  if(FPS.accent==='grad')warns.push('Gradient text needs approval under the brand guide. It matches the current Sublijet promo.');
+  $('fpWarn').hidden=!warns.length;$('fpWarn').textContent=warns.join(' ');
+}
+let fpRaf;function fpChanged(){fpSync();save();cancelAnimationFrame(fpRaf);fpRaf=requestAnimationFrame(fpDraw)}
+[['fpEyebrow','eyebrow'],['fpLead','lead'],['fpOffer','offer'],['fpCaption','caption']].forEach(([id,k])=>{const el=$(id);el.value=FPS[k];el.addEventListener('input',()=>{FPS[k]=el.value;FPS.example=false;fpChanged()})});
+[['fpCaps','caps'],['fpF916','f916'],['fpF45','f45']].forEach(([id,k])=>{const el=$(id);el.checked=!!FPS[k];el.addEventListener('change',()=>{FPS[k]=el.checked;fpChanged()})});
+[['fpAccent','accent'],['fpText','text'],['fpMark','mark']].forEach(([id,k])=>{const el=$(id);el.value=FPS[k];el.addEventListener('change',()=>{FPS[k]=el.value;fpChanged()})});
+$('fpNudge').value=FPS.nudge;$('fpNudge').addEventListener('input',e=>{FPS.nudge=Number(e.target.value);fpChanged()});
+FP_BGS.forEach(g=>{const b=document.createElement('button');b.type='button';b.className='sw'+(g.c?' solid':'');b.title=g.name;b.setAttribute('aria-label',g.name);
+  b.style.background=g.c?g.c:g.img?`center/cover url(${ASSETS.vfbg})`:`linear-gradient(180deg,${g.a},${g.b})`;b.dataset.id=g.id;
+  b.addEventListener('click',()=>{FPS.bg=g.id;fpChanged()});$('fpSwatches').appendChild(b)});
+const FP_SLIDERS=[['mark','Logomark'],['eyebrow','Eyebrow'],['lead','Lead-in'],['offer','Offer'],['caption','Caption'],['img','Product image']];
+function fpBuildSliders(){const box=$('fpSliders');box.innerHTML='';FP_SLIDERS.forEach(([k,label])=>{const row=document.createElement('div');row.className='sl';
+  row.innerHTML=`<span>${label}</span><input type="range" id="fp-size-${k}" min="50" max="200" step="5" aria-label="${label} size"><output>${FPS.scale[k]}%</output>`;
+  const i=row.querySelector('input'),o=row.querySelector('output');i.value=FPS.scale[k];i.addEventListener('input',()=>{FPS.scale[k]=Number(i.value);o.textContent=i.value+'%';fpChanged()});
+  row.appendChild(wsel(FPS,k,label,fpChanged));box.appendChild(row)})}
+fpBuildSliders();
+$('fpResetSizes').addEventListener('click',()=>{Object.keys(FPS.scale).forEach(k=>FPS.scale[k]=100);FPS.w=structuredClone(FP_DEFAULT.w);FPS.nudge=0;$('fpNudge').value=0;fpBuildSliders();fpChanged()});
+$('fpImgBtn').addEventListener('click',()=>$('fpImgFile').click());
+$('fpImgFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;const url=await readFile(f);fpImgs.product=await loadImg(url);bcIdb.set('fpImg',url);e.target.value='';fpChanged()});
+$('fpImgClear').addEventListener('click',()=>{fpImgs.product=null;bcIdb.del('fpImg');fpChanged()});
+$('fpExport').addEventListener('click',async()=>{
+  const st=$('fpStatus');const fs=FP_FORMATS.filter(f=>FPS[f.key]);if(!fs.length){st.textContent='Turn on at least one format.';return}
+  const btn=$('fpExport');btn.disabled=true;
+  try{st.textContent='Rendering…';const base=slug([FPS.lead,FPS.offer.split('\n').join(' '),FPS.caption].join(' ')).slice(0,50)||'promo';const c=document.createElement('canvas');
+    if(fs.length===1){fpRender(c,fs[0],false);const name=`${base}_${fs[0].id}.png`;await downloads.save({filename:name,data:await toBlob(c)});st.textContent=`Saved ${name}`}
+    else{const zip=new JSZip();for(const f of fs){fpRender(c,f,false);zip.file(`${base}_${f.id}.png`,await toBlob(c))}const name=`${base}_promo.zip`;await downloads.save({filename:name,data:await zip.generateAsync({type:'blob'})});st.textContent=`Saved ${name}`}}
+  catch(err){console.error(err);st.textContent='Export failed. Try again.'}
+  finally{btn.disabled=false}
+});
+async function fpLoadStored(){const p=await bcIdb.get('fpImg');if(p)fpImgs.product=await loadImg(p);fpSync()}
+
 /* Collapsible rail sections: click a section title to fold it; the state is remembered in this browser */
 (function(){
   let saved={};try{saved=JSON.parse(localStorage.getItem('sg-collapsed')||'{}')}catch(e){}
@@ -960,9 +1051,9 @@ async function bcLoadStored(){
   changed(true);
   if(P.logo)imgs.prLogo=await loadImg(P.logo);
   imgs.sawgrass=await loadImg(ASSETS.sawgrass);prSync();
-  if(Hh.img)imgs.holImg=await loadImg(Hh.img);holSync();iywSync();await bcLoadStored();
+  if(Hh.img)imgs.holImg=await loadImg(Hh.img);holSync();iywSync();await bcLoadStored();await fpLoadStored();
   try{const fl=await bcIdb.get('fonts');if(fl&&fl.length)await applyFonts(fl)}catch(e){}
-  show(['#stories','#tradeshow','#pr','#holiday','#words','#blog'].includes(location.hash)?location.hash.slice(1):'home');
+  show(['#stories','#tradeshow','#pr','#holiday','#words','#blog','#fast'].includes(location.hash)?location.hash.slice(1):'home');
   // Only edits made after the page has loaded count as changes worth syncing.
   setTimeout(()=>{window.SG_BOOTED=true},1200);
   // Standalone: save files with a normal browser download.
