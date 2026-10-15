@@ -353,15 +353,22 @@ $('splashBtn').addEventListener('click',()=>$('splashFile').click());
 $('splashFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;S.splash=await readFile(f);imgs.splashCur=await loadImg(S.splash);e.target.value='';changed()});
 $('splashReset').addEventListener('click',()=>{S.splash=null;imgs.splashCur=imgs.splash;changed()});
 
+/* Benton Sans: loaded from the person's own files and remembered in this browser (IndexedDB), never uploaded */
+const FONT_SET='"SG Benton Sans","Helvetica Neue",Helvetica,Arial,sans-serif';
+async function applyFonts(list){let n=0;
+  for(const {w,buf} of list){try{const ff=new FontFace('SG Benton Sans',buf,{weight:String(w)});await ff.load();document.fonts.add(ff);n++}catch(err){}}
+  if(n){fontFamily=FONT_SET;const ws=[...new Set(list.map(f=>f.w))].sort().map(w=>({400:'Book',500:'Medium',700:'Bold'})[w]).join(', ');
+    $('fontStatus').textContent=`Benton Sans loaded (${ws}). Remembered in this browser.`;$('fontClear').hidden=false;redrawAll()}
+  return n}
+function redrawAll(){try{changed()}catch(e){}for(const f of [()=>prDraw(),()=>holDraw(),()=>iywDraw(),()=>bcDraw()]){try{f()}catch(e){}}}
 $('fontBtn').addEventListener('click',()=>$('fontFile').click());
 $('fontFile').addEventListener('change',async e=>{
-  const files=[...e.target.files];let n=0;
-  for(const f of files){const nm=f.name.toLowerCase();const w=nm.includes('bold')?700:nm.includes('medium')?500:400;
-    try{const ff=new FontFace('SG Benton Sans',await f.arrayBuffer(),{weight:String(w)});await ff.load();document.fonts.add(ff);n++}catch(err){}}
-  if(n){fontFamily='"SG Benton Sans","Helvetica Neue",Helvetica,Arial,sans-serif';$('fontStatus').textContent=`Benton Sans loaded (${n} file${n>1?'s':''}). Fonts load per session, so reload them next time.`;changed()}
-  else $('fontStatus').textContent='Those files could not be read as fonts. Try .otf or .ttf.';
+  const list=[];for(const f of e.target.files){const nm=f.name.toLowerCase();list.push({w:nm.includes('bold')?700:nm.includes('medium')?500:400,buf:await f.arrayBuffer()})}
+  const n=await applyFonts(list.map(x=>({w:x.w,buf:x.buf.slice(0)})));
+  if(n){bcIdb.set('fonts',list)}else $('fontStatus').textContent='Those files could not be read as fonts. Try .otf or .ttf.';
   e.target.value='';
 });
+$('fontClear').addEventListener('click',()=>{bcIdb.del('fonts');$('fontStatus').textContent='Fonts forgotten. Reload the page to switch back to Helvetica.';$('fontClear').hidden=true});
 
 /* tabs + previews */
 function buildTabs(){
@@ -905,6 +912,7 @@ async function bcLoadStored(){
   if(P.logo)imgs.prLogo=await loadImg(P.logo);
   imgs.sawgrass=await loadImg(ASSETS.sawgrass);prSync();
   if(Hh.img)imgs.holImg=await loadImg(Hh.img);holSync();iywSync();await bcLoadStored();
+  try{const fl=await bcIdb.get('fonts');if(fl&&fl.length)await applyFonts(fl)}catch(e){}
   show(['#tradeshow','#pr','#holiday','#words','#blog'].includes(location.hash)?location.hash.slice(1):'home');
   // Only edits made after the page has loaded count as changes worth syncing.
   setTimeout(()=>{window.SG_BOOTED=true},1200);

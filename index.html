@@ -112,6 +112,7 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
 .bcrow canvas{width:100%;height:auto;display:block;border-radius:0;box-shadow:none}
 @media (max-width:640px){.bcrow{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .t-blog{background-image:linear-gradient(90deg,#E04584,#8C84E3)}
+.fontsec{max-width:560px}
 </style>
 </head>
 <body>
@@ -151,6 +152,16 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
       <span class="state ready">Ready</span>
     </button>
   </div>
+  <section class="sec fontsec">
+    <h2>Fonts</h2>
+    <p class="hint" id="fontStatus">Rendering in Helvetica, the approved fallback. Load the Benton Sans files to match Canva.</p>
+    <div class="upl">
+      <input id="fontFile" type="file" accept=".otf,.ttf,.woff,.woff2" multiple hidden>
+      <button class="btn" type="button" id="fontBtn">Load Benton Sans</button>
+      <button class="btn" type="button" id="fontClear" hidden>Forget fonts</button>
+    </div>
+    <p class="hint">Pick the Book, Medium and Bold files together. This browser remembers them, so you only do this once per computer. They are never uploaded to GitHub or Firebase.</p>
+  </section>
 </section>
 
 <div class="wrap" id="tradeshow" hidden>
@@ -243,15 +254,6 @@ figcaption{font-family:var(--mono);font-size:11px;color:var(--faint)}
       <button class="btn" type="button" id="resetCopy">Reset all copy to defaults</button>
     </section>
 
-    <section class="sec">
-      <h2>Type</h2>
-      <p class="hint" id="fontStatus">Rendering in Helvetica, the approved fallback. Load Benton Sans files to match Canva exactly.</p>
-      <div class="upl">
-        <input id="fontFile" type="file" accept=".otf,.ttf,.woff,.woff2" multiple hidden>
-        <button class="btn" type="button" id="fontBtn">Load Benton Sans</button>
-      </div>
-      <p class="hint">Pick the Book, Medium and Bold files together. Names containing Book, Medium or Bold are matched to their weight.</p>
-    </section>
   </aside>
 
   <main class="main">
